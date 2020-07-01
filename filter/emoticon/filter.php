@@ -93,7 +93,9 @@ class filter_emoticon extends moodle_text_filter {
             self::$emoticontexts[$lang][$theme] = array();
             self::$emoticonimgs[$lang][$theme] = array();
             foreach ($emoticons as $emoticon) {
-                self::$emoticontexts[$lang][$theme][] = $emoticon->text;
+	        self::$emoticontexts[$lang][$theme][] =
+                            '/(?:\<.+?\>)(*SKIP)(*FAIL)|' .
+                            preg_quote($emoticon->text, '/')  . '/';
                 self::$emoticonimgs[$lang][$theme][] = $OUTPUT->render($manager->prepare_renderable_emoticon($emoticon));
             }
             unset($emoticons);
@@ -142,7 +144,7 @@ class filter_emoticon extends moodle_text_filter {
                        strpos($fragment, '</span') === false) {
                 // This is the meat of the code - this is run every time.
                 // This code only runs for fragments that are not ignored (including the tags themselves).
-                $fragment = str_replace(self::$emoticontexts[$lang][$theme], self::$emoticonimgs[$lang][$theme], $fragment);
+		$fragment = preg_replace(self::$emoticontexts[$lang][$theme], self::$emoticonimgs[$lang][$theme], $fragment);
             }
             $resulthtml .= $fragment;
         }
