@@ -168,6 +168,14 @@ class settings_provider {
 
             $notifyelement = $mform->createElement('html', $OUTPUT->render($notify));
             self::insert_element($quizform, $mform, $notifyelement);
+        } elseif (empty(get_config('quizaccess_seb', 'allowconfigafterattempt')) && quiz_has_attempts($quizform->get_instance())) {
+            $notify = new \core\output\notification(
+                get_string('attemptswarning', 'quizaccess_seb'),
+                \core\output\notification::NOTIFY_WARNING
+            );
+
+            $notifyelement = $mform->createElement('html', $OUTPUT->render($notify));
+            self::insert_element($quizform, $mform, $notifyelement);
         }
 
         if (self::is_conflicting_permissions($quizform->get_context())) {
@@ -1024,7 +1032,7 @@ class settings_provider {
      * @return bool
      */
     public static function is_seb_settings_locked($quizid) : bool {
-        if (empty($quizid)) {
+        if (empty($quizid) || empty(get_config('quizaccess_seb', 'lockconfigafterattempt'))) {
             return false;
         }
 
