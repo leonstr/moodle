@@ -171,7 +171,7 @@ class quizaccess_seb extends quiz_access_rule_base {
             return;
         }
 
-        if (settings_provider::is_seb_settings_locked($quiz->id)) {
+        if (get_config('quizaccess_seb', 'lockconfigafterattempt') && settings_provider::is_seb_settings_locked($quiz->id)) {
             return;
         }
 
