@@ -3228,9 +3228,17 @@ function user_get_participants_sql($courseid, $groupid = 0, $accesssince = 0, $r
             }
             $conditions[] = $idnumber;
 
+// ou-specific begins #407 (until 3.11)
+/*
             if (!empty($CFG->showuseridentity)) {
                 // Search all user identify fields.
                 $extrasearchfields = explode(',', $CFG->showuseridentity);
+*/
+            // TODO Does not support custom user profile fields (MDL-70456).
+            $extrasearchfields = \core_user\fields::get_identity_fields($context, false);
+            if (!empty($extrasearchfields)) {
+                // Search all user identify fields.
+// ou-specific ends #407 (until 3.11)
                 foreach ($extrasearchfields as $extrasearchfield) {
                     if (in_array($extrasearchfield, ['email', 'idnumber', 'country'])) {
                         // Already covered above. Search by country not supported.

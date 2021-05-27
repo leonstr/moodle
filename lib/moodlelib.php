@@ -3645,12 +3645,20 @@ function fullname($user, $override=false) {
 function get_all_user_name_fields($returnsql = false, $tableprefix = null, $prefix = null, $fieldprefix = null, $order = false) {
     // This array is provided in this order because when called by fullname() (above) if firstname is before
     // firstnamephonetic str_replace() will change the wrong placeholder.
+// ou-specific begins #407 (until 3.11)
+/*
     $alternatenames = array('firstnamephonetic' => 'firstnamephonetic',
                             'lastnamephonetic' => 'lastnamephonetic',
                             'middlename' => 'middlename',
                             'alternatename' => 'alternatename',
                             'firstname' => 'firstname',
                             'lastname' => 'lastname');
+*/
+    $alternatenames = [];
+    foreach (\core_user\fields::get_name_fields() as $field) {
+        $alternatenames[$field] = $field;
+    }
+// ou-specific ends #407 (until 3.11)
 
     // Let's add a prefix to the array of user name fields if provided.
     if ($prefix) {
@@ -3762,6 +3770,8 @@ function order_in_string($values, $stringformat) {
  *   listed in $already
  */
 function get_extra_user_fields($context, $already = array()) {
+// ou-specific begins #407 (until 3.11)
+/*
     global $CFG;
 
     // Only users with permission get the extra fields.
@@ -3802,6 +3812,10 @@ function get_extra_user_fields($context, $already = array()) {
     $extra = array_values($extra);
 
     return $extra;
+*/
+    $fields = \core_user\fields::for_identity($context, false)->excluding(...$already);
+    return $fields->get_required_fields();
+// ou-specific ends #407 (until 3.11)
 }
 
 /**
@@ -3816,6 +3830,8 @@ function get_extra_user_fields($context, $already = array()) {
  * @return string Partial SQL select clause, beginning with comma, for example ',u.idnumber,u.department' unless it is blank
  */
 function get_extra_user_fields_sql($context, $alias='', $prefix='', $already = array()) {
+// ou-specific begins #407 (until 3.11)
+/*
     $fields = get_extra_user_fields($context, $already);
     $result = '';
     // Add punctuation for alias.
@@ -3829,6 +3845,13 @@ function get_extra_user_fields_sql($context, $alias='', $prefix='', $already = a
         }
     }
     return $result;
+*/
+    $fields = \core_user\fields::for_identity($context, false)->excluding(...$already);
+    // Note: There will never be any joins or join params because we turned off profile fields.
+    $selects = $fields->get_sql($alias, false, $prefix)->selects;
+
+    return $selects;
+// ou-specific ends #407 (until 3.11)
 }
 
 /**
@@ -3837,6 +3860,8 @@ function get_extra_user_fields_sql($context, $alias='', $prefix='', $already = a
  * @return string Text description taken from language file, e.g. 'Phone number'
  */
 function get_user_field_name($field) {
+// ou-specific begins #407 (until 3.11)
+/*
     // Some fields have language strings which are not the same as field name.
     switch ($field) {
         case 'url' : {
@@ -3863,6 +3888,9 @@ function get_user_field_name($field) {
     }
     // Otherwise just use the same lang string.
     return get_string($field);
+*/
+    return \core_user\fields::get_display_name($field);
+// ou-specific ends #407 (until 3.11)
 }
 
 /**

@@ -558,9 +558,27 @@ class core_enrol_external extends external_api {
 
         $results = array();
         // Add also extra user fields.
+// ou-specific begins #407 (until 3.11)
+        $identityfields = \core_user\fields::get_identity_fields($context, true);
+        $customprofilefields = [];
+        foreach ($identityfields as $key => $value) {
+            if ($fieldname = \core_user\fields::match_custom_field($value)) {
+                unset($identityfields[$key]);
+                $customprofilefields[$fieldname] = true;
+            }
+        }
+        if ($customprofilefields) {
+            $identityfields[] = 'customfields';
+        }
+// ou-specific ends #407 (until 3.11)
         $requiredfields = array_merge(
             ['id', 'fullname', 'profileimageurl', 'profileimageurlsmall'],
+// ou-specific begins #407 (until 3.11)
+/*
             get_extra_user_fields($context)
+*/
+            $identityfields
+// ou-specific ends #407 (until 3.11)
         );
         foreach ($users['users'] as $id => $user) {
             // Note: We pass the course here to validate that the current user can at least view user details in this course.
@@ -568,6 +586,17 @@ class core_enrol_external extends external_api {
             // user records, and the user has been validated to have course:enrolreview in this course. Otherwise
             // there is no way to find users who aren't in the course in order to enrol them.
             if ($userdetails = user_get_user_details($user, $course, $requiredfields)) {
+// ou-specific begins #407 (until 3.11)
+                // For custom fields, only return the ones we actually need.
+                if ($customprofilefields && array_key_exists('customfields', $userdetails)) {
+                    foreach ($userdetails['customfields'] as $key => $data) {
+                        if (!array_key_exists($data['shortname'], $customprofilefields)) {
+                            unset($userdetails['customfields'][$key]);
+                        }
+                    }
+                    $userdetails['customfields'] = array_values($userdetails['customfields']);
+                }
+// ou-specific ends #407 (until 3.11)
                 $results[] = $userdetails;
             }
         }

@@ -479,7 +479,12 @@ function get_users_listing($sort='lastaccess', $dir='ASC', $page=0, $recordsperp
 
     $fullname  = $DB->sql_fullname();
 
+// ou-specific begins #407 (until 3.11)
+/*
     $select = "deleted <> 1 AND id <> :guestid";
+*/
+    $select = "deleted <> 1 AND u.id <> :guestid";
+// ou-specific ends #407 (until 3.11)
     $params = array('guestid' => $CFG->siteguest);
 
     if (!empty($search)) {
@@ -502,6 +507,12 @@ function get_users_listing($sort='lastaccess', $dir='ASC', $page=0, $recordsperp
     }
 
     if ($extraselect) {
+// ou-specific begins #407 (until 3.11)
+        // The extra WHERE clause may refer to the 'id' column which can now be ambiguous because we
+        // changed the query to include joins, so replace any 'id' that is on its own (no alias)
+        // with 'u.id'.
+        $extraselect = preg_replace('~([ =]|^)id([ =]|$)~', '$1u.id$2', $extraselect);
+// ou-specific ends #407 (until 3.11)
         $select .= " AND $extraselect";
         $params = $params + (array)$extraparams;
     }
@@ -512,6 +523,8 @@ function get_users_listing($sort='lastaccess', $dir='ASC', $page=0, $recordsperp
 
     // If a context is specified, get extra user fields that the current user
     // is supposed to see.
+// ou-specific begins #407 (until 3.11)
+/*
     $extrafields = '';
     if ($extracontext) {
         $extrafields = get_extra_user_fields_sql($extracontext, '', '',
@@ -520,12 +533,30 @@ function get_users_listing($sort='lastaccess', $dir='ASC', $page=0, $recordsperp
     }
     $namefields = get_all_user_name_fields(true);
     $extrafields = "$extrafields, $namefields";
+*/
+    $userfields = \core_user\fields::for_name();
+    if ($extracontext) {
+        $userfields->with_identity($extracontext, true);
+    }
+    $userfields->excluding('id', 'username', 'email', 'city', 'country', 'lastaccess', 'confirmed', 'mnethostid');
+    ['selects' => $selects, 'joins' => $joins, 'params' => $joinparams] =
+            (array)$userfields->get_sql('u', true);
+// ou-specific ends #407 (until 3.11)
 
     // warning: will return UNCONFIRMED USERS
+// ou-specific begins #407 (until 3.11)
+/*
     return $DB->get_records_sql("SELECT id, username, email, city, country, lastaccess, confirmed, mnethostid, suspended $extrafields
                                    FROM {user}
                                   WHERE $select
                                   $sort", $params, $page, $recordsperpage);
+*/
+    return $DB->get_records_sql("SELECT u.id, username, email, city, country, lastaccess, confirmed, mnethostid, suspended $selects
+                                   FROM {user} u
+                                        $joins
+                                  WHERE $select
+                                  $sort", array_merge($params, $joinparams), $page, $recordsperpage);
+// ou-specific ends #407 (until 3.11)
 
 }
 

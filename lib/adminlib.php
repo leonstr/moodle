@@ -3015,6 +3015,10 @@ class admin_setting_configcheckbox extends admin_setting {
 class admin_setting_configmulticheckbox extends admin_setting {
     /** @var array Array of choices value=>label */
     public $choices;
+// ou-specific begins #407 (until 3.11)
+    /** @var callable|null Loader function for choices */
+    protected $choiceloader = null;
+// ou-specific ends #407 (until 3.11)
 
     /**
      * Constructor: uses parent::__construct
@@ -3026,7 +3030,17 @@ class admin_setting_configmulticheckbox extends admin_setting {
      * @param array $choices array of $value=>$label for each checkbox
      */
     public function __construct($name, $visiblename, $description, $defaultsetting, $choices) {
+// ou-specific begins #407 (until 3.11)
+/*
         $this->choices = $choices;
+*/
+        if (is_array($choices)) {
+            $this->choices = $choices;
+        }
+        if (is_callable($choices)) {
+            $this->choiceloader = $choices;
+        }
+// ou-specific ends #407 (until 3.11)
         parent::__construct($name, $visiblename, $description, $defaultsetting);
     }
 
@@ -3043,6 +3057,13 @@ class admin_setting_configmulticheckbox extends admin_setting {
         }
         .... load choices here
         */
+// ou-specific begins #407 (until 3.11)
+        if ($this->choiceloader) {
+            if (!is_array($this->choices)) {
+                $this->choices = call_user_func($this->choiceloader);
+            }
+        }
+// ou-specific ends #407 (until 3.11)
         return true;
     }
 

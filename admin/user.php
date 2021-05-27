@@ -183,9 +183,17 @@
     // These columns are always shown in the users list.
     $requiredcolumns = array('city', 'country', 'lastaccess');
     // Extra columns containing the extra user fields, excluding the required columns (city and country, to be specific).
+// ou-specific begins #407 (until 3.11)
+/*
     $extracolumns = get_extra_user_fields($context, $requiredcolumns);
     // Get all user name fields as an array.
     $allusernamefields = get_all_user_name_fields(false, null, null, null, true);
+*/
+    $userfields = \core_user\fields::for_identity($context, true)->excluding(...$requiredcolumns);
+    $extracolumns = $userfields->get_required_fields();
+    // Get all user name fields as an array, but with firstname and lastname first.
+    $allusernamefields = \core_user\fields::get_name_fields(true);
+// ou-specific ends #407 (until 3.11)
     $columns = array_merge($allusernamefields, $extracolumns, $requiredcolumns);
 
     foreach ($columns as $column) {

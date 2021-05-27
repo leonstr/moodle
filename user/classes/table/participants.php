@@ -141,9 +141,19 @@ class participants extends \table_sql implements dynamic_table {
         $headers[] = get_string('fullname');
         $columns[] = 'fullname';
 
+// ou-specific begins #407 (until 3.11)
+/*
         $extrafields = get_extra_user_fields($this->context);
+*/
+        $extrafields = \core_user\fields::get_identity_fields($this->context);
+// ou-specific ends #407 (until 3.11)
         foreach ($extrafields as $field) {
+// ou-specific begins #407 (until 3.11)
+/*
             $headers[] = get_user_field_name($field);
+*/
+            $headers[] = \core_user\fields::get_display_name($field);
+// ou-specific ends #407 (until 3.11)
             $columns[] = $field;
         }
 

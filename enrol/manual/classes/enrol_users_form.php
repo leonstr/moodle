@@ -93,7 +93,12 @@ class enrol_manual_enrol_users_form extends moodleform {
             'courseid' => $course->id,
             'enrolid' => $instance->id,
             'perpage' => $CFG->maxusersperpage,
+// ou-specific begins #407 (until 3.11)
+/*
             'userfields' => implode(',', get_extra_user_fields($context))
+*/
+            'userfields' => implode(',', \core_user\fields::get_identity_fields($context, true))
+// ou-specific ends #407 (until 3.11)
         );
         $mform->addElement('autocomplete', 'userlist', get_string('selectusers', 'enrol_manual'), array(), $options);
 

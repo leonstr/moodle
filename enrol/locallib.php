@@ -23,6 +23,10 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+// ou-specific begins #407 (until 3.11)
+use core_user\fields;
+
+// ou-specific ends #407 (until 3.11)
 defined('MOODLE_INTERNAL') || die();
 
 /**
@@ -238,14 +242,28 @@ class course_enrolment_manager {
             list($instancessql, $params, $filter) = $this->get_instance_sql();
             list($filtersql, $moreparams) = $this->get_filter_sql();
             $params += $moreparams;
+// ou-specific begins #407 (until 3.11)
+/*
             $extrafields = get_extra_user_fields($this->get_context());
             $extrafields[] = 'lastaccess';
             $ufields = user_picture::fields('u', $extrafields);
             $sql = "SELECT DISTINCT $ufields, COALESCE(ul.timeaccess, 0) AS lastcourseaccess
+                       FROM {user} u
+                       JOIN {user_enrolments} ue ON (ue.userid = u.id  AND ue.enrolid $instancessql)
+                       JOIN {enrol} e ON (e.id = ue.enrolid)
+                  LEFT JOIN {user_lastaccess} ul ON (ul.courseid = e.courseid AND ul.userid = u.id)";
+*/
+            $userfields = fields::for_identity($this->get_context())->with_userpic()->excluding('lastaccess');
+            ['selects' => $fieldselect, 'joins' => $fieldjoin, 'params' => $fieldjoinparams] =
+                    (array)$userfields->get_sql('u', true, '', '', false);
+            $params += $fieldjoinparams;
+            $sql = "SELECT DISTINCT $fieldselect, COALESCE(ul.timeaccess, 0) AS lastcourseaccess
                       FROM {user} u
                       JOIN {user_enrolments} ue ON (ue.userid = u.id  AND ue.enrolid $instancessql)
                       JOIN {enrol} e ON (e.id = ue.enrolid)
+                           $fieldjoin
                  LEFT JOIN {user_lastaccess} ul ON (ul.courseid = e.courseid AND ul.userid = u.id)";
+// ou-specific ends #407 (until 3.11)
             if ($this->groupfilter) {
                 $sql .= " LEFT JOIN ({groups_members} gm JOIN {groups} g ON (g.id = gm.groupid))
                                     ON (u.id = gm.userid AND g.courseid = e.courseid)";
@@ -341,6 +359,8 @@ class course_enrolment_manager {
             list($ctxcondition, $params) = $DB->get_in_or_equal($this->context->get_parent_context_ids(true), SQL_PARAMS_NAMED, 'ctx');
             $params['courseid'] = $this->course->id;
             $params['cid'] = $this->course->id;
+// ou-specific begins #407 (until 3.11)
+/*
             $extrafields = get_extra_user_fields($this->get_context());
             $ufields = user_picture::fields('u', $extrafields);
             $sql = "SELECT ra.id as raid, ra.contextid, ra.component, ctx.contextlevel, ra.roleid, $ufields,
@@ -357,6 +377,28 @@ class course_enrolment_manager {
                    WHERE ctx.id $ctxcondition AND
                          ue.id IS NULL
                 ORDER BY $sort $direction, ctx.depth DESC";
+*/
+            $userfields = fields::for_identity($this->get_context())->with_userpic();
+            ['selects' => $fieldselect, 'joins' => $fieldjoin, 'params' => $fieldjoinparams] =
+                    (array)$userfields->get_sql('u', true);
+            $params += $fieldjoinparams;
+            $sql = "SELECT ra.id as raid, ra.contextid, ra.component, ctx.contextlevel, ra.roleid,
+                           coalesce(u.lastaccess,0) AS lastaccess
+                           $fieldselect
+                      FROM {role_assignments} ra
+                      JOIN {user} u ON u.id = ra.userid
+                      JOIN {context} ctx ON ra.contextid = ctx.id
+                           $fieldjoin
+                 LEFT JOIN (
+                       SELECT ue.id, ue.userid
+                         FROM {user_enrolments} ue
+                         JOIN {enrol} e ON e.id = ue.enrolid
+                        WHERE e.courseid = :courseid
+                       ) ue ON ue.userid=u.id
+                     WHERE ctx.id $ctxcondition AND
+                           ue.id IS NULL
+                  ORDER BY $sort $direction, ctx.depth DESC";
+// ou-specific ends #407 (until 3.11)
             $this->otherusers[$key] = $DB->get_records_sql($sql, $params, $page*$perpage, $perpage);
         }
         return $this->otherusers[$key];
@@ -375,13 +417,40 @@ class course_enrolment_manager {
     protected function get_basic_search_conditions($search, $searchanywhere) {
         global $DB, $CFG;
 
+// ou-specific begins #407 (until 3.11)
+        // Get custom user field SQL used for querying all the fields we need (identity, name, and
+        // user picture).
+        $userfields = fields::for_identity($this->context)->with_name()->with_userpic()
+                ->excluding('username', 'lastaccess', 'maildisplay');
+        ['selects' => $fieldselects, 'joins' => $fieldjoins, 'params' => $params, 'mappings' => $mappings] =
+                (array)$userfields->get_sql('u', true, '', '', false);
+
+        // Searchable fields are only the identity and name ones (not userpic).
+        $searchable = array_fill_keys($userfields->get_required_fields(
+                [fields::PURPOSE_IDENTITY, fields::PURPOSE_NAME]), true);
+
+// ou-specific ends #407 (until 3.11)
         // Add some additional sensible conditions
         $tests = array("u.id <> :guestid", 'u.deleted = 0', 'u.confirmed = 1');
+// ou-specific begins #407 (until 3.11)
+/*
         $params = array('guestid' => $CFG->siteguest);
+*/
+        $params['guestid'] = $CFG->siteguest;
+// ou-specific ends #407 (until 3.11)
         if (!empty($search)) {
+// ou-specific begins #407 (until 3.11)
+/*
             $conditions = get_extra_user_fields($this->get_context());
             foreach (get_all_user_name_fields() as $field) {
                 $conditions[] = 'u.'.$field;
+*/
+            // Include identity and name fields as conditions.
+            foreach ($mappings as $fieldname => $fieldsql) {
+                if (array_key_exists($fieldname, $searchable)) {
+                    $conditions[] = $fieldsql;
+                }
+// ou-specific ends #407 (until 3.11)
             }
             $conditions[] = $DB->sql_fullname('u.firstname', 'u.lastname');
             if ($searchanywhere) {
@@ -399,6 +468,8 @@ class course_enrolment_manager {
         }
         $wherecondition = implode(' AND ', $tests);
 
+// ou-specific begins #407 (until 3.11)
+/*
         $extrafields = get_extra_user_fields($this->get_context(), array('username', 'lastaccess'));
         $extrafields[] = 'username';
         $extrafields[] = 'lastaccess';
@@ -406,6 +477,10 @@ class course_enrolment_manager {
         $ufields = user_picture::fields('u', $extrafields);
 
         return array($ufields, $params, $wherecondition);
+*/
+        $selects = $fieldselects . ', u.username, u.lastaccess, u.maildisplay';
+        return [$selects, $fieldjoins, $params, $wherecondition];
+// ou-specific ends #407 (until 3.11)
     }
 
     /**
@@ -486,11 +561,19 @@ class course_enrolment_manager {
             $addedenrollment = 0, $returnexactcount = false) {
         global $DB;
 
+// ou-specific begins #407 (until 3.11)
+/*
         list($ufields, $params, $wherecondition) = $this->get_basic_search_conditions($search, $searchanywhere);
+*/
+        [$ufields, $joins, $params, $wherecondition] = $this->get_basic_search_conditions($search, $searchanywhere);
+// ou-specific ends #407 (until 3.11)
 
         $fields      = 'SELECT '.$ufields;
         $countfields = 'SELECT COUNT(1)';
         $sql = " FROM {user} u
+-- ou-specific begins #407 (until 3.11)
+                      $joins
+-- ou-specific ends #407 (until 3.11)
             LEFT JOIN {user_enrolments} ue ON (ue.userid = u.id AND ue.enrolid = :enrolid)
                 WHERE $wherecondition
                       AND ue.id IS NULL";
@@ -518,11 +601,19 @@ class course_enrolment_manager {
     public function search_other_users($search = '', $searchanywhere = false, $page = 0, $perpage = 25, $returnexactcount = false) {
         global $DB, $CFG;
 
+// ou-specific begins #407 (until 3.11)
+/*
         list($ufields, $params, $wherecondition) = $this->get_basic_search_conditions($search, $searchanywhere);
+*/
+        [$ufields, $joins, $params, $wherecondition] = $this->get_basic_search_conditions($search, $searchanywhere);
+// ou-specific ends #407 (until 3.11)
 
         $fields      = 'SELECT ' . $ufields;
         $countfields = 'SELECT COUNT(u.id)';
         $sql   = " FROM {user} u
+-- ou-specific begins #407 (until 3.11)
+                        $joins
+-- ou-specific ends #407 (until 3.11)
               LEFT JOIN {role_assignments} ra ON (ra.userid = u.id AND ra.contextid = :contextid)
                   WHERE $wherecondition
                     AND ra.id IS NULL";
@@ -546,11 +637,19 @@ class course_enrolment_manager {
      */
     public function search_users(string $search = '', bool $searchanywhere = false, int $page = 0, int $perpage = 25,
             bool $returnexactcount = false) {
+// ou-specific begins #407 (until 3.11)
+/*
         list($ufields, $params, $wherecondition) = $this->get_basic_search_conditions($search, $searchanywhere);
+*/
+        [$ufields, $joins, $params, $wherecondition] = $this->get_basic_search_conditions($search, $searchanywhere);
+// ou-specific ends #407 (until 3.11)
 
         $fields      = 'SELECT ' . $ufields;
         $countfields = 'SELECT COUNT(u.id)';
         $sql = " FROM {user} u
+-- ou-specific begins #407 (until 3.11)
+                      $joins
+-- ou-specific ends #407 (until 3.11)
                  JOIN {user_enrolments} ue ON ue.userid = u.id
                  JOIN {enrol} e ON ue.enrolid = e.id
                 WHERE $wherecondition

@@ -251,6 +251,8 @@ class core_user {
         $extrasql = '';
         $extraparams = [];
 
+// ou-specific begins #407 (until 3.11)
+/*
         if (empty($CFG->showuseridentity)) {
             // Explode gives wrong result with empty string.
             $extra = [];
@@ -270,6 +272,13 @@ class core_user {
         }
         $selectfields = \user_picture::fields('u',
                 array_merge(get_all_user_name_fields(), $extrafieldlist));
+*/
+        // TODO Does not support custom user profile fields (MDL-70456).
+        $userfieldsapi = \core_user\fields::for_identity(null, false)->with_userpic()->with_name()
+            ->including('username', 'deleted');
+        $selectfields = $userfieldsapi->get_sql('u', false, '', '', false)->selects;
+        $extra = $userfieldsapi->get_required_fields([\core_user\fields::PURPOSE_IDENTITY]);
+// ou-specific ends #407 (until 3.11)
 
         $index = 1;
         foreach ($extra as $fieldname) {

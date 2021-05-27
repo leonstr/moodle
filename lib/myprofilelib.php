@@ -125,12 +125,18 @@ function core_myprofile_navigation(core_user\output\myprofile\tree $tree, $user,
     } else {
         $hiddenfields = array_flip(explode(',', $CFG->hiddenuserfields));
     }
+// ou-specific begins #407 (until 3.11)
+/*
     $canviewuseridentity = has_capability('moodle/site:viewuseridentity', $courseorusercontext);
     if ($canviewuseridentity) {
         $identityfields = array_flip(explode(',', $CFG->showuseridentity));
     } else {
         $identityfields = array();
     }
+*/
+    // TODO Does not support custom user profile fields (MDL-70456).
+    $identityfields = array_flip(\core_user\fields::get_identity_fields($courseorusercontext, false));
+// ou-specific ends #407 (until 3.11)
 
     if (is_mnet_remote_user($user)) {
         $sql = "SELECT h.id, h.name, h.wwwroot,
@@ -156,7 +162,12 @@ function core_myprofile_navigation(core_user\output\myprofile\tree $tree, $user,
             or ($user->maildisplay == core_user::MAILDISPLAY_COURSE_MEMBERS_ONLY and enrol_sharing_course($user, $USER))
             or has_capability('moodle/course:useremail', $courseorusercontext) // TODO: Deprecate/remove for MDL-37479.
         ))
+// ou-specific begins #407 (until 3.11)
+/*
         or (isset($identityfields['email']) and $canviewuseridentity)
+*/
+        or (isset($identityfields['email']))
+// ou-specific ends #407 (until 3.11)
        ) {
         $node = new core_user\output\myprofile\node('contact', 'email', get_string('email'), null, null,
             obfuscate_mailto($user->email, ''));
