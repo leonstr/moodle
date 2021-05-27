@@ -26,6 +26,9 @@
 require_once($CFG->dirroot.'/user/filters/text.php');
 require_once($CFG->dirroot.'/user/filters/date.php');
 require_once($CFG->dirroot.'/user/filters/select.php');
+// ra-specific start
+require_once($CFG->dirroot.'/user/filters/selectprofile.php');
+// ra-specific end
 require_once($CFG->dirroot.'/user/filters/simpleselect.php');
 require_once($CFG->dirroot.'/user/filters/courserole.php');
 require_once($CFG->dirroot.'/user/filters/globalrole.php');
@@ -57,19 +60,43 @@ class user_filtering {
      * @param array $extraparams extra page parameters
      */
     public function __construct($fieldnames = null, $baseurl = null, $extraparams = null) {
-        global $SESSION;
+        // ra-specific start
+        // global $SESSION;
+        global $SESSION, $DB;
+        // ra-specific end
 
         if (!isset($SESSION->user_filtering)) {
             $SESSION->user_filtering = array();
         }
 
+        // ra-specific start
+        // Get custom profile fields
+        $select = "datatype IN ('menu')";   // FIXME Support 'text' too
+        $profilefields = $DB->get_records_select('user_info_field', $select, null, 'sortorder ASC');
+        // ra-specific end
+
         if (empty($fieldnames)) {
             // As a start, add all fields as advanced fields (which are only available after clicking on "Show more").
+            // ra-specific start
+            /*
             $fieldnames = array('realname' => 1, 'lastname' => 1, 'firstname' => 1, 'username' => 1, 'email' => 1, 'city' => 1,
                                 'country' => 1, 'confirmed' => 1, 'suspended' => 1, 'profile' => 1, 'courserole' => 1,
                                 'anycourses' => 1, 'systemrole' => 1, 'cohort' => 1, 'firstaccess' => 1, 'lastaccess' => 1,
                                 'neveraccessed' => 1, 'timemodified' => 1, 'nevermodified' => 1, 'auth' => 1, 'mnethostid' => 1,
                                 'idnumber' => 1, 'institution' => 1, 'department' => 1, 'lastip' => 1);
+            */
+            $fieldnames = array('realname' => 1, 'lastname' => 1, 'firstname' => 1, 'username' => 1, 'email' => 1, 'city' => 1,
+                                'country' => 1, 'confirmed' => 1, 'suspended' => 1, 'profile' => 1);
+
+            foreach ($profilefields as $key => $field) {
+                $fieldnames[$field->shortname] = 1;
+            }
+
+            $fieldnames = array_merge($fieldnames, array('courserole' => 1,
+                                'anycourses' => 1, 'systemrole' => 1, 'cohort' => 1, 'firstaccess' => 1, 'lastaccess' => 1,
+                                'neveraccessed' => 1, 'timemodified' => 1, 'nevermodified' => 1, 'auth' => 1, 'mnethostid' => 1,
+                                'idnumber' => 1, 'institution' => 1, 'department' => 1, 'lastip' => 1));
+            // ra-specific end
 
             // Get the config which filters the admin wanted to show by default.
             $userfiltersdefault = get_config('core', 'userfiltersdefault');
@@ -213,7 +240,21 @@ class user_filtering {
                 return new user_filter_simpleselect('mnethostid', get_string('mnetidprovider', 'mnet'), $advanced, 'mnethostid', $choices);
 
             default:
-                return null;
+                // ra-specific start
+                // Any custom profile fields of type drop-down menu?
+                // FIXME: Also support custom profile fields of type text.
+                $select = "shortname = ? AND datatype IN ('menu')";
+                $profilefield = $DB->get_record_select('user_info_field', $select, array($fieldname));
+
+                if (!empty($profilefield)) {
+                    // Only drop-down menu fields supported currently using
+                    // user_filter_selectprofile instances.
+                    return new user_filter_selectprofile($profilefield->shortname, $profilefield->name, $advanced, $profilefield->shortname, explode("\n", $profilefield->param1));
+                } else {
+                    return null;
+                }
+                //return null;
+                // ra-specific end
         }
     }
 
