@@ -51,8 +51,9 @@ class user_filter_selectprofile extends user_filter_select {
         }
 
         $params = array();
-        $where = " WHERE data = :$name AND mdl_user_info_field.shortname = '$field'"; // FIXME $field should probably be a param (somehow)
+        $where = " WHERE data = :$name AND mdl_user_info_field.shortname = :shortname";
         $params[$name] = $value;
+        $params['shortname'] = $field;
 
         return array("id $op (SELECT userid FROM {user_info_data} INNER JOIN mdl_user_info_field ON mdl_user_info_data.fieldid = mdl_user_info_field.id $where)", $params);
     }
