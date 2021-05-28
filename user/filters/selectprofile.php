@@ -34,9 +34,11 @@ class user_filter_selectprofile extends user_filter_select {
      */
     public function get_sql_filter($data) {
         static $counter = 0;
-        $name = 'ex_selectprofile'.$counter++;
+        $name = 'ex_selectprofile'.$counter;
         $value = $this->_options[$data['value']];
         $field = $this->_field; // Custom profile field's shortname
+        $shortname_param = $field . $counter;
+        $counter++;
         $operator = $data['operator'];
 
         switch($operator) {
@@ -51,9 +53,9 @@ class user_filter_selectprofile extends user_filter_select {
         }
 
         $params = array();
-        $where = " WHERE data = :$name AND mdl_user_info_field.shortname = :shortname";
+        $where = " WHERE data = :$name AND mdl_user_info_field.shortname = :$shortname_param";
         $params[$name] = $value;
-        $params['shortname'] = $field;
+        $params[$shortname_param] = $field;
 
         return array("id $op (SELECT userid FROM {user_info_data} INNER JOIN mdl_user_info_field ON mdl_user_info_data.fieldid = mdl_user_info_field.id $where)", $params);
     }
