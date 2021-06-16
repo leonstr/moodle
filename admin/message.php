@@ -42,7 +42,7 @@ $providers = get_message_providers();
 // Fetch the manage message outputs interface.
 $preferences = get_message_output_default_preferences();
 
-if (($form = data_submitted()) && confirm_sesskey()) {
+if ($form = data_submitted() and confirm_sesskey() and isset($form->action) and $form->action == 'save-settings') {
     $newpreferences = array();
     // Prepare default message outputs settings.
     foreach ($providers as $provider) {
