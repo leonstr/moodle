@@ -48,6 +48,7 @@ class core_message_renderer extends plugin_renderer_base {
     public function manage_messageoutput_settings($allprocessors, $processors, $providers, $preferences) {
         $output = html_writer::start_tag('form', array('id' => 'defaultmessageoutputs', 'method' => 'post'));
         $output .= html_writer::empty_tag('input', array('type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()));
+        $output .= html_writer::empty_tag('input', array('type' => 'hidden', 'name' => 'action', 'value' => 'save-settings'));
 
         // Add message output processors enabled/disabled and settings.
         $output .= $this->heading(get_string('messageoutputs', 'message'));
