@@ -54,6 +54,11 @@ $PAGE->set_pagelayout('report');
 $firstnamesort = ($sort == 'firstname');
 $excel = ($format == 'excelcsv');
 $csv = ($format == 'csv' || $excel);
+if ($csv) {
+    $dateformat = '%F %T';
+} else {
+    $dateformat = get_string('strftimedatetimeshort', 'langconfig');
+}
 
 // Load CSV library
 if ($csv) {
@@ -569,8 +574,8 @@ foreach ($progress as $user) {
     // Progress for each course completion criteria
     foreach ($criteria as $criterion) {
 
-        $criteria_completion = $completion->get_user_completion($user->id, $criterion);
-        $is_complete = $criteria_completion->is_complete();
+        $criteriacompletion = $completion->get_user_completion($user->id, $criterion);
+        $complete = $criteriacompletion->is_complete();
 
         // Handle activity completion differently
         if ($criterion->criteriatype == COMPLETION_CRITERIA_TYPE_ACTIVITY) {
@@ -581,13 +586,13 @@ foreach ($progress as $user) {
             // Get progress information and state
             if (array_key_exists($activity->id, $user->progress)) {
                 $state = $user->progress[$activity->id]->completionstate;
-            } else if ($is_complete) {
+            } else if ($complete) {
                 $state = COMPLETION_COMPLETE;
             } else {
                 $state = COMPLETION_INCOMPLETE;
             }
-            if ($is_complete) {
-                $date = userdate($criteria_completion->timecompleted, get_string('strftimedatetimeshort', 'langconfig'));
+            if ($complete) {
+                $date = userdate($criteriacompletion->timecompleted, $dateformat);
             } else {
                 $date = '';
             }
@@ -626,7 +631,7 @@ foreach ($progress as $user) {
         }
 
         // Handle all other criteria
-        $completiontype = $is_complete ? 'y' : 'n';
+        $completiontype = $complete ? 'y' : 'n';
         $completionicon = 'completion-auto-'.$completiontype;
 
         $describe = get_string('completion-'.$completiontype, 'completion');
@@ -634,8 +639,8 @@ foreach ($progress as $user) {
         $a = new stdClass();
         $a->state    = $describe;
 
-        if ($is_complete) {
-            $a->date = userdate($criteria_completion->timecompleted, get_string('strftimedatetimeshort', 'langconfig'));
+        if ($complete) {
+            $a->date = userdate($criteriacompletion->timecompleted, $dateformat);
         } else {
             $a->date = '';
         }
@@ -664,7 +669,7 @@ foreach ($progress as $user) {
                 );
 
                 print '<a href="'.$toggleurl->out().'" title="'.s(get_string('clicktomarkusercomplete', 'report_completion')).'">' .
-                    $OUTPUT->pix_icon('i/completion-manual-' . ($is_complete ? 'y' : 'n'), $describe) . '</a></td>';
+                    $OUTPUT->pix_icon('i/completion-manual-' . ($complete ? 'y' : 'n'), $describe) . '</a></td>';
             } else {
                 print $OUTPUT->pix_icon('i/' . $completionicon, $fulldescribe) . '</td>';
             }
@@ -689,7 +694,7 @@ foreach ($progress as $user) {
     $a = new StdClass;
 
     if ($ccompletion->is_complete()) {
-        $a->date = userdate($ccompletion->timecompleted, get_string('strftimedatetimeshort', 'langconfig'));
+        $a->date = userdate($ccompletion->timecompleted, $dateformat);
     } else {
         $a->date = '';
     }
