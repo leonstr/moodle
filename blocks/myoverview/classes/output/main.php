@@ -444,6 +444,8 @@ class main implements renderable, templatable {
         $sort = '';
         if ($this->sort == BLOCK_MYOVERVIEW_SORTING_SHORTNAME) {
             $sort = 'shortname';
+        } else if ($this->sort == BLOCK_MYOVERVIEW_SORTING_ENROLTIME) {
+            $sort = 'ue.timemodified DESC';
         } else {
             $sort = $this->sort == BLOCK_MYOVERVIEW_SORTING_TITLE ? 'fullname' : 'ul.timeaccess desc';
         }

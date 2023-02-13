@@ -85,6 +85,7 @@ $string['show'] = 'Restore to view';
 $string['sortbytitle'] = 'Sort by course name';
 $string['sortbylastaccessed'] = 'Sort by last accessed';
 $string['sortbyshortname'] = 'Sort by short name';
+$string['sortbyenroltime'] = 'Sort by enrol time';
 $string['privacy:request:preference:set'] = 'The value of the setting \'{$a->name}\' was \'{$a->value}\'';
 
 // Deprecated since Moodle 4.0.

@@ -625,6 +625,7 @@ function enrol_get_my_courses($fields = null, $sort = null, $limit = 0, $coursei
     $orderby = "";
     $sort    = trim($sort);
     $sorttimeaccess = false;
+    $sorttimeenrol = false;
     if (!empty($sort)) {
         $rawsorts = explode(',', $sort);
         $sorts = array();
@@ -656,6 +657,9 @@ function enrol_get_my_courses($fields = null, $sort = null, $limit = 0, $coursei
                     if ($prefix === 'ul') {
                         $sorts[] = "COALESCE({$prefix}.{$fieldname}, 0) {$sortdirection}";
                         $sorttimeaccess = true;
+                    } else if ($prefix === 'ue') {
+                        $sorts[] = "COALESCE({$prefix}.{$fieldname}, 0) {$sortdirection}";
+                        $sorttimeenrol = true;
                     } else {
                         // Check if the field name that matches with the prefix and just append to sorts.
                         $sorts[] = $rawsort;
@@ -671,6 +675,9 @@ function enrol_get_my_courses($fields = null, $sort = null, $limit = 0, $coursei
                         if ($prefix === 'ul') {
                             $sorts[] = "COALESCE({$prefix}.{$sortfield}, 0) {$sortdirection}";
                             $sorttimeaccess = true;
+                        } else if ($prefix === 'ue') {
+                            $sorts[] = "COALESCE({$prefix}.{$sortfield}, 0) {$sortdirection}";
+                            $sorttimeenrol = true;
                         } else {
                             $sorts[] = "{$prefix}.{$sortfield} {$sortdirection}";
                         }
@@ -705,6 +712,8 @@ function enrol_get_my_courses($fields = null, $sort = null, $limit = 0, $coursei
 
     $timeaccessselect = "";
     $timeaccessjoin = "";
+    $timeenrolselect = "";
+    $timeenroljoin = "";
 
     if (!empty($courseids)) {
         list($courseidssql, $courseidsparams) = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED);
@@ -736,6 +745,12 @@ function enrol_get_my_courses($fields = null, $sort = null, $limit = 0, $coursei
             $params['userid2'] = $USER->id;
             $timeaccessselect = ', ul.timeaccess as lastaccessed';
             $timeaccessjoin = "LEFT JOIN {user_lastaccess} ul ON (ul.courseid = c.id AND ul.userid = :userid2)";
+        }
+
+        if ($sorttimeenrol) {
+            $params['userid2'] = $USER->id;
+            $timeenrolselect = ', ue.timemodified as enroltime';
+            $timeenroljoin = "JOIN {enrol} e ON e.courseid = c.id JOIN {user_enrolments} ue ON (ue.enrolid = e.id AND ue.userid = :userid2)";
         }
     }
 
@@ -797,10 +812,11 @@ function enrol_get_my_courses($fields = null, $sort = null, $limit = 0, $coursei
 
     // Note: we can not use DISTINCT + text fields due to Oracle and MS limitations, that is why
     // we have the subselect there.
-    $sql = "SELECT $coursefields $ccselect $timeaccessselect
+    $sql = "SELECT $coursefields $ccselect $timeaccessselect $timeenrolselect
               FROM {course} c
               JOIN ($courseidsql) en ON (en.courseid = c.id)
            $timeaccessjoin
+           $timeenroljoin
            $ccjoin
              WHERE $wheres
           $orderby";
