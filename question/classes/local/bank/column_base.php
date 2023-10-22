@@ -392,6 +392,14 @@ abstract class column_base extends view_component {
      * @param array $questions
      */
     public function load_question_tags(array $questions): void {
+        if (\core_tag_tag::is_enabled('core_question', 'question') === false) {
+            foreach ($questions as $question) {
+                $question->tags = false;
+            }
+
+            return;
+        }
+
         $firstquestion = reset($questions);
         if (isset($firstquestion->tags)) {
             // Looks like tags are already loaded, so don't do it again.
