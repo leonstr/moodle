@@ -211,7 +211,7 @@ class assign_feedback_file extends assign_feedback_plugin {
      * @param int $userid The userid we are currently grading
      * @return bool true if elements were added to the form
      */
-    public function get_form_elements_for_user($grade, MoodleQuickForm $mform, stdClass $data, $userid) {
+    public function get_form_elements_for_user($grade, MoodleQuickForm $mform, stdClass $data, $userid, $marker = null) {
 
         $fileoptions = $this->get_file_options();
         $gradeid = $grade ? $grade->id : 0;
@@ -328,7 +328,7 @@ class assign_feedback_file extends assign_feedback_plugin {
      * @param stdClass $grade
      * @return string
      */
-    public function view(stdClass $grade) {
+    public function view(stdClass $grade, int $marker = null) {
         return $this->assignment->render_area_files('assignfeedback_file',
                                                     ASSIGNFEEDBACK_FILE_FILEAREA,
                                                     $grade->id);

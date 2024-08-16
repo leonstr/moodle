@@ -404,6 +404,7 @@ class renderer extends \plugin_renderer_base {
      * @return string
      */
     public function render_assign_feedback_status(\assign_feedback_status $status) {
+        global $DB;
         $o = '';
 
         $o .= $this->output->container_start('feedback');
@@ -426,9 +427,18 @@ class renderer extends \plugin_renderer_base {
         if ($status->grader) {
             // Grader.
             $cell1content = get_string('gradedby', 'assign');
-            $cell2content = $this->output->user_picture($status->grader) .
-                            $this->output->spacer(array('width' => 30)) .
-                            fullname($status->grader, $status->canviewfullnames);
+            $cell2content = "";
+
+            foreach ($DB->get_records('assign_grades_mark', ['gradeid' => $status->grade->id]) as $record) {
+                if (!empty($cell2content)) {
+                    $cell2content .= '<br>';
+                }
+                $grader = \core_user::get_user($record->marker);
+                $cell2content .= $this->output->user_picture($grader) .
+                                $this->output->spacer(array('width' => 30)) .
+                                fullname($grader, $status->canviewfullnames);
+            }
+
             $this->add_table_row_tuple($t, $cell1content, $cell2content);
         }
 

@@ -155,7 +155,7 @@ class assign_grading_table extends table_sql implements renderable {
         $fields .= 'uf.locked as locked, ';
         $fields .= 'uf.extensionduedate as extensionduedate, ';
         $fields .= 'uf.workflowstate as workflowstate, ';
-        $fields .= 'uf.allocatedmarker as allocatedmarker';
+        $fields .= 'uf.allocatedmarkers as allocatedmarkers';
 
         $from = '{user} u
                          LEFT JOIN {assign_submission} s
@@ -690,11 +690,23 @@ class assign_grading_table extends table_sql implements renderable {
      * list current marker
      *
      * @param stdClass $row - The row of data
-     * @return id the user->id of the marker.
+     * @return id the user->id of the marker. FIXME This isn't correct!
      */
     public function col_allocatedmarker(stdClass $row) {
+        global $DB;
         static $markers = null;
         static $markerlist = array();
+
+        if (!empty($row) && !empty($row->allocatedmarkers)) {
+            $marker1 = [];
+
+            foreach (explode(',', $row->allocatedmarkers) as $marker2) {
+                $marker1[] = fullname(\core_user::get_user($marker2));
+            }
+
+            $marker1 = implode(", ", $marker1);
+        }
+
         if ($markers === null) {
             list($sort, $params) = users_order_by_sql('u');
             // Only enrolled users could be assigned as potential markers.
@@ -725,14 +737,15 @@ class assign_grading_table extends table_sql implements renderable {
 
             $name = 'quickgrade_' . $row->id . '_allocatedmarker';
             return  html_writer::select($markerlist, $name, $row->allocatedmarker, false);
-        } else if (!empty($row->allocatedmarker)) {
+        } else if (!empty($row->allocatedmarkers)) {
             $output = '';
             if ($this->quickgrading) { // Add hidden field for quickgrading page.
                 $name = 'quickgrade_' . $row->id . '_allocatedmarker';
                 $attributes = ['type' => 'hidden', 'name' => $name, 'value' => $row->allocatedmarker];
                 $output .= html_writer::empty_tag('input', $attributes);
             }
-            $output .= $markerlist[$row->allocatedmarker];
+            #$output .= $markerlist[$row->allocatedmarker];
+            $output .= $marker1;
             return $output;
         }
     }

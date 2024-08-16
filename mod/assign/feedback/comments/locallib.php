@@ -57,9 +57,16 @@ class assign_feedback_comments extends assign_feedback_plugin {
      * @return stdClass|false The feedback comments for the given grade if it exists.
      *                        False if it doesn't.
      */
-    public function get_feedback_comments($gradeid) {
+    public function get_feedback_comments($gradeid, $marker = null) {
         global $DB;
-        return $DB->get_record('assignfeedback_comments', array('grade'=>$gradeid));
+        if ($marker !== null) {
+            return $DB->get_record('assignfeedback_comments', ['grade' => $gradeid, 'marker' => $marker]);
+        } else {
+            #return $DB->get_record('assignfeedback_comments', array('grade'=>$gradeid));
+            // FIXME Temporary hack to return a single record when there are records from multiple markers.
+            $records = $DB->get_records('assignfeedback_comments', array('grade'=>$gradeid));
+            return reset($records);
+        }
     }
 
     /**
@@ -342,13 +349,13 @@ class assign_feedback_comments extends assign_feedback_plugin {
      * @param stdClass $data
      * @return bool true if elements were added to the form
      */
-    public function get_form_elements_for_user($grade, MoodleQuickForm $mform, stdClass $data, $userid) {
+    public function get_form_elements_for_user($grade, MoodleQuickForm $mform, stdClass $data, $userid, $marker = null) {
         $commentinlinenabled = $this->get_config('commentinline');
         $submission = $this->assignment->get_user_submission($userid, false);
         $feedbackcomments = false;
 
         if ($grade) {
-            $feedbackcomments = $this->get_feedback_comments($grade->id);
+            $feedbackcomments = $this->get_feedback_comments($grade->id, $marker);
         }
 
         // Check first for data from last form submission in case grading validation failed.
@@ -391,7 +398,7 @@ class assign_feedback_comments extends assign_feedback_plugin {
      * @return bool
      */
     public function save(stdClass $grade, stdClass $data) {
-        global $DB;
+        global $DB, $USER;
 
         // Save the files.
         $data = file_postupdate_standard_editor(
@@ -404,7 +411,7 @@ class assign_feedback_comments extends assign_feedback_plugin {
             $grade->id
         );
 
-        $feedbackcomment = $this->get_feedback_comments($grade->id);
+        $feedbackcomment = $this->get_feedback_comments($grade->id, $USER->id);
         if ($feedbackcomment) {
             $feedbackcomment->commenttext = $data->assignfeedbackcomments;
             $feedbackcomment->commentformat = $data->assignfeedbackcommentsformat;
@@ -415,6 +422,7 @@ class assign_feedback_comments extends assign_feedback_plugin {
             $feedbackcomment->commentformat = $data->assignfeedbackcommentsformat;
             $feedbackcomment->grade = $grade->id;
             $feedbackcomment->assignment = $this->assignment->get_instance()->id;
+            $feedbackcomment->marker = $USER->id;
             return $DB->insert_record('assignfeedback_comments', $feedbackcomment) > 0;
         }
     }
@@ -429,7 +437,21 @@ class assign_feedback_comments extends assign_feedback_plugin {
     public function view_summary(stdClass $grade, & $showviewlink) {
         $feedbackcomments = $this->get_feedback_comments($grade->id);
         if ($feedbackcomments) {
-            $text = $this->rewrite_feedback_comments_urls($feedbackcomments->commenttext, $grade->id);
+            if (!empty($feedbackcomments->marker)) {
+                // Concatenate all markers' feedback for summary.
+                $commenttext = "";
+
+                global $DB;
+                foreach ($DB->get_records('assignfeedback_comments', ['grade'=>$grade->id]) as $record) {
+                    if (!empty($commenttext)) {
+                        $commenttext .= '<br>';
+                    }
+                    $commenttext .= $record->commenttext;
+                }
+            } else {
+                $commenttext = $feedbackcomments->commenttext;
+            }
+            $text = $this->rewrite_feedback_comments_urls($commenttext, $grade->id);
             $text = format_text(
                 $text,
                 $feedbackcomments->commentformat,
@@ -452,17 +474,34 @@ class assign_feedback_comments extends assign_feedback_plugin {
      * @param stdClass $grade
      * @return string
      */
-    public function view(stdClass $grade) {
-        $feedbackcomments = $this->get_feedback_comments($grade->id);
+    public function view(stdClass $grade, int $marker = null) {
+        #$feedbackcomments = $this->get_feedback_comments($grade->id, $marker);
+        global $DB;
+        if ($marker === null) {
+            $feedbackcomments = $DB->get_records('assignfeedback_comments', ['grade' => $grade->id]);
+        } else {
+            $feedbackcomments = $DB->get_records('assignfeedback_comments', ['grade' => $grade->id, 'marker' => $marker]);
+        }
         if ($feedbackcomments) {
-            $text = $this->rewrite_feedback_comments_urls($feedbackcomments->commenttext, $grade->id);
-            $text = format_text(
-                $text,
-                $feedbackcomments->commentformat,
-                [
-                    'context' => $this->assignment->get_context()
-                ]
-            );
+            $text = "";
+            foreach ($feedbackcomments as $feedbackcomment) {
+                if (!empty($text)) {
+                    $text .= "\n";
+                }
+                if ($marker === null) {
+                    // Don't show marker's name if we're only showing the comments from a specific marker.
+                    $text .= fullname(\core_user::get_user($feedbackcomment->marker)) . ": ";
+                }
+            #$text = $this->rewrite_feedback_comments_urls($feedbackcomments->commenttext, $grade->id);
+                $text .= format_text(
+                    $this->rewrite_feedback_comments_urls($feedbackcomment->commenttext, $grade->id),
+                    #$text,
+                    $feedbackcomment->commentformat,
+                    [
+                        'context' => $this->assignment->get_context()
+                    ]
+                );
+            }
 
             return $text;
         }

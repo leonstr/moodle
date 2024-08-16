@@ -224,7 +224,7 @@ class assign_feedback_editpdf extends assign_feedback_plugin {
      * @param int $userid
      * @return bool true if elements were added to the form
      */
-    public function get_form_elements_for_user($grade, MoodleQuickForm $mform, stdClass $data, $userid) {
+    public function get_form_elements_for_user($grade, MoodleQuickForm $mform, stdClass $data, $userid, $marker = null) {
         global $PAGE;
 
         $attempt = -1;
@@ -368,7 +368,7 @@ class assign_feedback_editpdf extends assign_feedback_plugin {
      * @param stdClass $grade
      * @return string
      */
-    public function view(stdClass $grade) {
+    public function view(stdClass $grade, int $marker = null) {
         global $PAGE;
         $html = '';
         // Show a link to download the pdf.

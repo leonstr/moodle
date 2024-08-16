@@ -11,11 +11,13 @@
         <FIELD NAME="grade" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="commenttext" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="The feedback text"/>
         <FIELD NAME="commentformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="The feedback text format"/>
+        <FIELD NAME="marker" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id" COMMENT="The unique id for this feedback"/>
         <KEY NAME="assignment" TYPE="foreign" FIELDS="assignment" REFTABLE="assign" REFFIELDS="id" COMMENT="The assignment instance this feedback relates to."/>
         <KEY NAME="grade" TYPE="foreign" FIELDS="grade" REFTABLE="assign_grades" REFFIELDS="id" COMMENT="The grade instance this feedback relates to."/>
+        <KEY NAME="marker" TYPE="foreign" FIELDS="marker" REFTABLE="user" REFFIELDS="id" COMMENT="The user ID of the marker who left this feedback."/>
       </KEYS>
     </TABLE>
   </TABLES>

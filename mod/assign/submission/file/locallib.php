@@ -387,7 +387,7 @@ class assign_submission_file extends assign_submission_plugin {
      * @param stdClass $submission
      * @return string
      */
-    public function view(stdClass $submission) {
+    public function view(stdClass $submission, int $marker = null) {
         return $this->assignment->render_area_files('assignsubmission_file',
                                                     ASSIGNSUBMISSION_FILE_FILEAREA,
                                                     $submission->id);

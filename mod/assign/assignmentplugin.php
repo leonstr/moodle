@@ -244,7 +244,7 @@ abstract class assign_plugin {
      *                      This is passed separately as there may not yet be a submission or grade.
      * @return boolean - true if we added anything to the form
      */
-    public function get_form_elements_for_user($submissionorgrade, MoodleQuickForm $mform, stdClass $data, $userid) {
+    public function get_form_elements_for_user($submissionorgrade, MoodleQuickForm $mform, stdClass $data, $userid, $marker = null) {
         return $this->get_form_elements($submissionorgrade, $mform, $data);
     }
 
@@ -270,7 +270,7 @@ abstract class assign_plugin {
      *                 for feedback plugins it is the grade data
      * @return string - return a string representation of the submission in full
      */
-    public function view(stdClass $submissionorgrade) {
+    public function view(stdClass $submissionorgrade, int $marker = null) {
         return '';
     }
 

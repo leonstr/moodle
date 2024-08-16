@@ -455,7 +455,7 @@ class assign_submission_onlinetext extends assign_submission_plugin {
      * @param stdClass $submission
      * @return string
      */
-    public function view(stdClass $submission) {
+    public function view(stdClass $submission, int $marker = null) {
         global $CFG;
         $result = '';
         $plagiarismlinks = '';

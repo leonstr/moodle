@@ -779,6 +779,13 @@ class assign {
                 $update->markinganonymous = $formdata->markinganonymous;
             }
         }
+        if (isset($formdata->markercount)) {
+            if (empty($update->markingworkflow)) {
+                $update->markercount = 1;
+            } else {
+                $update->markercount = $formdata->markercount;
+            }
+        }
         $returnid = $DB->insert_record('assign', $update);
         $this->instance = $DB->get_record('assign', array('id'=>$returnid), '*', MUST_EXIST);
         // Cache the course record.
@@ -1551,6 +1558,13 @@ class assign {
         if (empty($update->markingworkflow) || empty($update->blindmarking)) {
             $update->markinganonymous = 0;
         }
+        if (isset($formdata->markercount)) {
+            if (empty($update->markingworkflow)) {
+                $update->markercount = 1;
+            } else {
+                $update->markercount = $formdata->markercount;
+            }
+        }
 
         $result = $DB->update_record('assign', $update);
         $this->instance = $DB->get_record('assign', array('id'=>$update->id), '*', MUST_EXIST);
@@ -1627,10 +1641,10 @@ class assign {
      * @param int $userid - The userid we are grading
      * @return void
      */
-    protected function add_plugin_grade_elements($grade, MoodleQuickForm $mform, stdClass $data, $userid) {
+    protected function add_plugin_grade_elements($grade, MoodleQuickForm $mform, stdClass $data, $userid, $marker = null) {
         foreach ($this->feedbackplugins as $plugin) {
             if ($plugin->is_enabled() && $plugin->is_visible()) {
-                $plugin->get_form_elements_for_user($grade, $mform, $data, $userid);
+                $plugin->get_form_elements_for_user($grade, $mform, $data, $userid, $marker);
             }
         }
     }
@@ -2298,7 +2312,10 @@ class assign {
 
                 $params['assignmentid3'] = (int) $instance->id;
 
-                $additionalfilters .= ' AND uf.allocatedmarker = :markerid';
+                #$additionalfilters .= ' AND uf.allocatedmarker = :markerid';
+                // FIXME Using MariaDB-specific regex operator.
+                // FIXME Not using named params.
+                $additionalfilters .= " AND uf.allocatedmarkers REGEXP '(^|,){$USER->id}(,|$)'";
                 $params['markerid'] = $USER->id;
             }
 
@@ -2984,6 +3001,30 @@ class assign {
         }
 
         return true;
+    }
+
+    /**
+     * FIXME
+     */
+    public function update_mark($gradeid, $marker, $mark) {
+        global $DB;
+
+        $record = $DB->get_record('assign_grades_mark', ['gradeid' => $gradeid, 'marker' => $marker]);
+
+        if ($record) {
+            #$record->grade = $grade->grade;
+            $record->grade = $mark;
+            $record->timemodified = time();
+            $DB->update_record('assign_grades_mark', $record);
+        } else {
+            $record = new stdClass();
+            $record->gradeid = $gradeid;
+            $record->timecreated = $record->timemodified = time();
+            $record->marker = $marker;
+            #$record->grade = $grade->grade;
+            $record->grade = $mark;
+            $DB->insert_record('assign_grades_mark', $record);
+        }
     }
 
     /**
@@ -4065,6 +4106,10 @@ class assign {
         }
         if (!empty($flags->allocatedmarker)) {
             $data->allocatedmarker = $flags->allocatedmarker;
+        }
+        global $USER;
+        if  ($record = $DB->get_record('assign_grades_mark', ['gradeid' => $grade->id, 'marker' => $USER->id])) {
+            $data->mark = $record->grade;
         }
 
         // Warning if required.
@@ -5194,6 +5239,7 @@ class assign {
         }
 
         $formparams['markers'] = $markerlist;
+        $formparams['markercount'] = $this->get_instance()->markercount;
 
         $mform = new mod_assign_batch_set_allocatedmarker_form(null, $formparams);
         $mform->set_data($formdata);    // Initialises the hidden elements.
@@ -7820,10 +7866,13 @@ class assign {
             // Use simple direct grading.
             if ($this->get_instance()->grade > 0) {
                 $name = get_string('gradeoutof', 'assign', $this->get_instance()->grade);
+                #$mform->addElement('static', 'grade', $name);
+                $mform->addElement('static', 'grade', $name, 'Not yet graded');
+                $name = "Mark out of 100";
                 if (!$gradingdisabled) {
-                    $gradingelement = $mform->addElement('text', 'grade', $name);
-                    $mform->addHelpButton('grade', 'gradeoutofhelp', 'assign');
-                    $mform->setType('grade', PARAM_RAW);
+                    $gradingelement = $mform->addElement('text', 'mark', $name);
+                    #$mform->addHelpButton('grade', 'gradeoutofhelp', 'assign');
+                    $mform->setType('mark', PARAM_RAW);
                 } else {
                     $strgradelocked = get_string('gradelocked', 'assign');
                     $mform->addElement('static', 'gradedisabled', $name, $strgradelocked);
@@ -7940,6 +7989,29 @@ class assign {
 
         $gradestring = '<span class="currentgrade">' . $gradestring . '</span>';
         $mform->addElement('static', 'currentgrade', get_string('currentgrade', 'assign'), $gradestring);
+        $mark = "";
+        
+        // Show grades left by other markers.
+        global $DB;
+        $markers = explode(',', $DB->get_field('assign_user_flags', 'allocatedmarkers', ['userid' => $userid, 'assignment' => $this->get_instance()->id]));
+
+        foreach ($markers as $marker) {
+            if ($record = $DB->get_record('assign_grades_mark', ['gradeid' => $grade->id, 'marker' => $marker])) {
+                if ($marker == $USER->id) {
+                    $mark = $record->grade;
+                } else {
+                    $markerfeedback = "";
+                    foreach ($this->feedbackplugins as $plugin) {
+                        if ($plugin->is_enabled() && $plugin->is_visible()) {
+                            $markerfeedback .= $plugin->view($grade, $marker);
+                        }
+                    }
+                    $mform->addElement('static', "mark_$marker", fullname(\core_user::get_user($marker)), "Mark: {$record->grade}, feedback: {$markerfeedback}");
+                #} else {
+                    #$mform->addElement('static', "mark_$marker", fullname(\core_user::get_user($marker)), "(Not yet graded)");
+                }
+            }
+        }
 
         if (count($useridlist) > 1) {
             $strparams = array('current'=>$rownum+1, 'total'=>count($useridlist));
@@ -7948,7 +8020,7 @@ class assign {
         }
 
         // Let feedback plugins add elements to the grading form.
-        $this->add_plugin_grade_elements($grade, $mform, $data, $userid);
+        $this->add_plugin_grade_elements($grade, $mform, $data, $userid, $USER->id);
 
         // Hidden params.
         $mform->addElement('hidden', 'id', $this->get_course_module()->id);
@@ -8418,7 +8490,8 @@ class assign {
 
         $formparams = array(
             'userscount' => 0,  // This form is never re-displayed, so we don't need to
-            'usershtml' => ''   // initialise these parameters with real information.
+            'usershtml' => '',  // initialise these parameters with real information.
+            'markercount' => $this->get_instance()->markercount
         );
 
         list($sort, $params) = users_order_by_sql('u');
@@ -8439,7 +8512,12 @@ class assign {
 
         if ($formdata = $mform->get_data()) {
             $useridlist = explode(',', $formdata->selectedusers);
-            $marker = $DB->get_record('user', array('id' => $formdata->allocatedmarker), '*', MUST_EXIST);
+            $markers = [];
+            $markerindex = 1;
+            while (property_exists($formdata, 'allocatedmarker' . $markerindex)) {
+                $markers[] = $formdata->{'allocatedmarker' . $markerindex};
+                $markerindex++;
+            }
 
             foreach ($useridlist as $userid) {
                 $flags = $this->get_user_flags($userid, true);
@@ -8451,11 +8529,12 @@ class assign {
                     continue; // Allocated marker can only be changed in certain workflow states.
                 }
 
-                $flags->allocatedmarker = $marker->id;
+                $flags->allocatedmarkers = implode(',', $markers);
 
                 if ($this->update_user_flags($flags)) {
                     $user = $DB->get_record('user', array('id' => $userid), '*', MUST_EXIST);
-                    \mod_assign\event\marker_updated::create_from_marker($this, $user, $marker)->trigger();
+                    $marker = $DB->get_record('user', ['id' => $markers[0]], '*', MUST_EXIST);  // Get object for marker 1 just to populate event.
+                    \mod_assign\event\marker_updated::create_from_marker($this, $user, $marker)->trigger(); // FIXME Passing marker 1 only.
                 }
             }
         }
@@ -8595,12 +8674,30 @@ class assign {
             }
         }
 
+        if (!empty($formdata->addattempt) || !empty($formdata->mark)) {
+            $this->update_mark($grade->id, $grade->grader, $formdata->mark);
+            $markers = $DB->get_field('assign_user_flags', 'allocatedmarkers', ['assignment' => $grade->assignment, 'userid' => $grade->userid]);
+            $records = $DB->get_records('assign_grades_mark', ['gradeid' => $grade->id]);
+
+            // If all markers have given marks update grade.
+            if (count($records) === (substr_count($markers, ',') + 1)) {
+                $grade->grade = 0;
+                // Final grade is the highest mark across all markers.
+                foreach ($records as $record) {
+                    $grade->grade = max($grade->grade, $record->grade);
+                }
+                $this->update_grade($grade, !empty($formdata->addattempt));
+            }
+        }
         // We do not want to update the timemodified if no grade was added.
         if (!empty($formdata->addattempt) ||
                 ($originalgrade !== null && $originalgrade != -1) ||
                 ($grade->grade !== null && $grade->grade != -1) ||
                 $feedbackmodified) {
+            /*
+            $this->update_mark($grade);
             $this->update_grade($grade, !empty($formdata->addattempt));
+            */
         }
 
         // We never send notifications if we have marking workflow and the grade is not released.
@@ -9699,6 +9796,29 @@ class assign {
         }
 
         return !empty($submission) && $submission->status !== ASSIGN_SUBMISSION_STATUS_SUBMITTED && $timedattemptstarted;
+    }
+
+    /**
+     * FIXME
+     */
+    private function set_allocated_marker(int $userid, int $markerid): void {
+        global $DB;
+
+        $assignment = $this->get_instance()->id;
+        $record = $DB->get_record('assign_allocated_marker', ['userid' => $userid, 'assignment' => $assignment]);
+
+        if ($record) {
+            $record->markerid = $markerid;
+            #$record->teacherid = $markerid;
+            $DB->update_record('assign_allocated_marker', $record);
+        } else {
+            $record = new \stdClass();
+            $record->userid = $userid;
+            $record->assignment = $assignment;
+            $record->markerid = $markerid;
+            #$record->teacherid = $markerid;
+            $DB->insert_record('assign_allocated_marker', $record);
+        }
     }
 }
 

@@ -28,6 +28,9 @@
  * @return bool
  */
 function xmldb_assignfeedback_comments_upgrade($oldversion) {
+    global $DB;
+    $dbman = $DB->get_manager();
+
     // Automatically generated Moodle v4.1.0 release upgrade line.
     // Put any upgrade step following this.
 
@@ -39,6 +42,21 @@ function xmldb_assignfeedback_comments_upgrade($oldversion) {
 
     // Automatically generated Moodle v4.4.0 release upgrade line.
     // Put any upgrade step following this.
+
+    if ($oldversion < 2024042200.01) {
+        // Define field marker to be added.
+        $table = new xmldb_table('assignfeedback_comments');
+        $field = new xmldb_field('marker', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
+
+        // Conditionally launch add field activity.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+
+        // Comments savepoint reached.
+        upgrade_plugin_savepoint(true, 2024042200.01, 'assignfeedback', 'comments');
+    }
 
     return true;
 }
