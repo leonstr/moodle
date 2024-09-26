@@ -31,6 +31,7 @@ require_once($CFG->dirroot . '/question/engine/tests/helpers.php');
  * @package   qtype_randomsamatch
  * @copyright 2013 Jean-Michel Vedrine
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers \qtype_randomsamatch\question
  */
 class question_test extends \advanced_testcase {
 
@@ -146,5 +147,61 @@ class question_test extends \advanced_testcase {
         $this->assertMatchesRegularExpression('/Dog -> \w+; Frog -> \w+/', $summary);
     }
 
+    public function test_validate_can_regrade_with_other_version_ok(): void {
+        $question = \test_question_maker::make_question('randomsamatch');
+        $newquestion = clone($question);
+        $result = $newquestion->validate_can_regrade_with_other_version($question);
+        $this->assertNull($result, 'Regrade should be possible when stems and choices have not changed.');
+    }
+
+    public function test_validate_can_regrade_with_other_version_bad_stems(): void {
+        $question = \test_question_maker::make_question('randomsamatch');
+        // Ensure stems are populated for the test.
+        $question->stems = [1 => 'Stem 1', 2 => 'Stem 2'];
+        $this->assertGreaterThan(1, count($question->stems), 'The stems array should contain more than one element.');
+        $newquestion = clone($question);
+        unset($newquestion->stems[array_key_first($newquestion->stems)]);
+        $this->assertCount(count($question->stems) - 1, $newquestion->stems, 'The number of stems should be reduced by 1.');
+        $result = $newquestion->validate_can_regrade_with_other_version($question);
+        $this->assertEquals(get_string('regradeissuenumstemschanged', 'qtype_randomsamatch'), $result);
+    }
+
+    public function test_validate_can_regrade_with_other_version_bad_choices(): void {
+        $question = \test_question_maker::make_question('randomsamatch');
+        // Ensure choices are populated for the test.
+        $question->choices = [1 => 'Choice 1', 2 => 'Choice 2'];
+        $this->assertGreaterThan(1, count($question->choices), 'The choices array should contain more than one element.');
+        $newquestion = clone($question);
+        unset($newquestion->choices[array_key_first($newquestion->choices)]);
+        $this->assertCount(count($question->choices) - 1, $newquestion->choices, 'The number of choices should be reduced by 1.');
+        $result = $newquestion->validate_can_regrade_with_other_version($question);
+        $this->assertEquals(get_string('regradeissuenumchoiceschanged', 'qtype_randomsamatch'), $result);
+    }
+
+    public function test_update_attempt_state_data_for_new_version_ok(): void {
+        $question = \test_question_maker::make_question('randomsamatch');
+        $question->stems = [1 => 'Stem 1', 2 => 'Stem 2', 3 => 'Stem 3'];
+        $question->choices = [1 => 'Choice 1', 2 => 'Choice 2', 3 => 'Choice 3'];
+        $question->right = [1 => 1, 2 => 2, 3 => 3];
+        $newquestion = clone($question);
+        $oldstep = new \question_attempt_step();
+        $oldstep->set_qt_var('_stemorder', implode(',', array_keys($question->stems)));
+        foreach ($question->stems as $key => $value) {
+            $oldstep->set_qt_var('_stem_' . $key, $value);
+            $oldstep->set_qt_var('_stemformat_' . $key, FORMAT_HTML);
+            $oldstep->set_qt_var('_right_' . $key, $question->right[$key]);
+            $oldstep->set_qt_var('_choice_' . $question->right[$key], $question->choices[$question->right[$key]]);
+        }
+        $oldstep->set_qt_var('_choiceorder', implode(',', array_keys($question->choices)));
+        $startdata = $newquestion->update_attempt_state_data_for_new_version($oldstep, $question);
+        $this->assertEquals($oldstep->get_qt_var('_stemorder'), $startdata['_stemorder']);
+        $this->assertEquals($oldstep->get_qt_var('_choiceorder'), $startdata['_choiceorder']);
+        foreach ($question->stems as $key => $value) {
+            $this->assertEquals($value, $startdata['_stem_' . $key]);
+            $this->assertEquals(FORMAT_HTML, $startdata['_stemformat_' . $key]);
+            $this->assertEquals($question->right[$key], $startdata['_right_' . $key]);
+            $this->assertEquals($question->choices[$question->right[$key]], $startdata['_choice_' . $question->right[$key]]);
+        }
+    }
 
 }
