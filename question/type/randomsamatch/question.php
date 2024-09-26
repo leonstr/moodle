@@ -92,6 +92,45 @@ class qtype_randomsamatch_question extends qtype_match_question {
 
     }
 
+    /**
+     * Validate if this question can be regraded to a new version.
+     * @param question_definition $otherversion The new version of the question.
+     * @return string|null Error message if regrade is not possible, or null if it is.
+     */
+    public function validate_can_regrade_with_other_version(question_definition $otherversion): ?string {
+        $basemessage = parent::validate_can_regrade_with_other_version($otherversion);
+        if ($basemessage) {
+            return $basemessage;
+        }
+        if (count($this->stems) != count($otherversion->stems)) {
+            return get_string('regradeissuenumstemschanged', 'qtype_randomsamatch');
+        }
+        if (count($this->choices) != count($otherversion->choices)) {
+            return get_string('regradeissuenumchoiceschanged', 'qtype_randomsamatch');
+        }
+        return null;
+    }
+
+    /**
+     * Update the attempt state data for a new version of the question.
+     * @param question_attempt_step $oldstep The old step containing the attempt data.
+     * @param question_definition $otherversion The new version of the question.
+     * @return array The updated start data.
+     */
+    public function update_attempt_state_data_for_new_version(
+            question_attempt_step $oldstep, question_definition $otherversion) {
+        $saquestions = explode(',', $oldstep->get_qt_var('_stemorder'));
+        foreach ($saquestions as $questionid) {
+            $this->stems[$questionid] = $oldstep->get_qt_var('_stem_' . $questionid);
+            $this->stemformat[$questionid] = $oldstep->get_qt_var('_stemformat_' . $questionid);
+            $key = $oldstep->get_qt_var('_right_' . $questionid);
+            $this->right[$questionid] = $key;
+            $this->choices[$key] = $oldstep->get_qt_var('_choice_' . $key);
+        }
+        $startdata = parent::update_attempt_state_data_for_new_version($oldstep, $otherversion);
+        return $startdata;
+    }
+
     public function apply_attempt_state(question_attempt_step $step) {
         $saquestions = explode(',', $step->get_qt_var('_stemorder'));
         foreach ($saquestions as $questionid) {
