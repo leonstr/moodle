@@ -36,5 +36,8 @@ $string['privacy:metadata'] = 'The Random short-answer matching question type pl
 $string['randomsamatchnumber'] = 'Number of questions to select';
 $string['randomsamatch'] = 'Random short-answer matching';
 $string['randomsamatchintro'] = 'For each of the following questions, select the matching answer from the menu.';
+$string['regradeissuenumchoiceschanged'] = 'The number of choices has changed.';
+$string['regradeissuenumstemschanged'] = 'The number of sub-questions has changed.';
 $string['subcats'] = 'Include subcategories';
 $string['subcats_help'] = 'If checked, questions will be choosen from subcategories too.';
+
