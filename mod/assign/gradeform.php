@@ -47,6 +47,7 @@ class mod_assign_grade_form extends moodleform {
         $mform = $this->_form;
 
         list($assignment, $data, $params) = $this->_customdata;
+
         // Visible elements.
         $this->assignment = $assignment;
         $assignment->add_grade_form_elements($mform, $data, $params);
