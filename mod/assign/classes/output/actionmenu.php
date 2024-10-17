@@ -32,13 +32,17 @@ class actionmenu implements templatable, renderable {
     /** @var int The course module ID. */
     private $cmid;
 
+    /** @var int Number of markers, 2 for double marking, etc. */
+    private $markercount;
+
     /**
      * Constructor for this object.
      *
      * @param int $cmid The course module ID.
      */
-    public function __construct(int $cmid) {
+    public function __construct(int $cmid, int $markercount) {
         $this->cmid = $cmid;
+        $this->markercount = $markercount;
     }
 
     /**
@@ -51,8 +55,13 @@ class actionmenu implements templatable, renderable {
         $return = [];
 
         if (has_capability('mod/assign:grade', \context_module::instance($this->cmid))) {
-            $gradelink = new moodle_url('/mod/assign/view.php', ['id' => $this->cmid, 'action' => 'grader']);
-            $return['gradelink'] = $gradelink->out(false);
+            if ($this->markercount > 1) {
+                $gradelink = new moodle_url('/mod/assign/view.php', ['id' => $this->cmid, 'action' => 'marker']);
+                $return['marklink'] = $gradelink->out(false);
+            } else {
+                $gradelink = new moodle_url('/mod/assign/view.php', ['id' => $this->cmid, 'action' => 'grader']);
+                $return['gradelink'] = $gradelink->out(false);
+            }
         }
 
         return $return;
