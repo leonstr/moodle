@@ -109,8 +109,49 @@ function xmldb_assign_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2024042201, 'assign');
     }
 
-    // Automatically generated Moodle v4.5.0 release upgrade line.
-    // Put any upgrade step following this.
+    if ($oldversion < 2024100700.06) {
+
+        // Define field markercount to be added to assign.
+        $table = new xmldb_table('assign');
+        $field = new xmldb_field('markercount', XMLDB_TYPE_INTEGER, '6', null, XMLDB_NOTNULL, null, '1', 'markingallocation');
+        // Conditionally launch add field markercount.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Define field multimarkmethod to be added to assign.
+        $table = new xmldb_table('assign');
+        $field = new xmldb_field('multimarkmethod', XMLDB_TYPE_CHAR, '10', null, false, false, null, 'markercount');
+        // Conditionally launch add field multimarkmethod.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Define table assign_mark to be created.
+        $table = new xmldb_table('assign_mark');
+
+        // Adding fields to table assign_mark.
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('gradeid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('marker', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('mark', XMLDB_TYPE_FLOAT, '10,5', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('workflowstate', XMLDB_TYPE_CHAR, '20', null, null, null, null);
+
+        // Adding keys to table assign_grades_mark.
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_key('gradeid', XMLDB_KEY_FOREIGN, ['gradeid'], 'assign_grades', ['id']);
+        $table->add_key('marker', XMLDB_KEY_FOREIGN, ['marker'], 'user', ['id']);
+
+        // Conditionally launch create table for assign_mark.
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Assign savepoint reached.
+        upgrade_mod_savepoint(true, 2024100700.06, 'assign');
+    }
 
     return true;
 }
