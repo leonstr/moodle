@@ -681,6 +681,8 @@ class assign {
             $o .= $this->view_edit_submission_page($mform, $notices);
         } else if ($action == 'grader') {
             $o .= $this->view_grader();
+        } else if ($action == 'marker') {
+            $o .= $this->view_grader(true);
         } else if ($action == 'grading') {
             $o .= $this->view_grading_page();
         } else if ($action == 'downloadall') {
@@ -792,6 +794,17 @@ class assign {
                 $update->markinganonymous = $formdata->markinganonymous;
             }
         }
+
+        if (property_exists($formdata, 'markercount')) {
+            $update->markercount = $formdata->markercount;
+
+            if ($formdata->markercount > 1) {
+                $update->multimarkmethod = $formdata->multimarkmethod;
+            }
+        } else {
+            $update->markercount = 1;
+        }
+
         $returnid = $DB->insert_record('assign', $update);
         $this->instance = $DB->get_record('assign', array('id'=>$returnid), '*', MUST_EXIST);
         // Cache the course record.
@@ -1579,6 +1592,14 @@ class assign {
         // If marking workflow is disabled, or blindmarking is disabled then make sure marking anonymous is disabled.
         if (empty($update->markingworkflow) || empty($update->blindmarking)) {
             $update->markinganonymous = 0;
+        }
+
+        if (property_exists($formdata, 'markercount')) {
+            $update->markercount = $formdata->markercount;
+
+            if ($formdata->markercount > 1) {
+                $update->multimarkmethod = $formdata->multimarkmethod;
+            }
         }
 
         $result = $DB->update_record('assign', $update);
@@ -3034,6 +3055,55 @@ class assign {
     }
 
     /**
+     * Add or update an mdl_assign_mark record.
+     * @param int $gradeid The corresponding mdl_assign_grades record for this
+     * mark, that is, the record where the grade field will be populated when
+     * all necessary marks are awarded allowing the grade to be set.
+     * @param int $marker The user ID of this marker.
+     * @param float $mark The mark awarded by this marker, for example, 55.2.
+     * @param FIXME $workflowstate
+     */
+    public function update_mark($grade, $mark, $workflowstate) {
+        global $DB;
+
+        if ($record = $DB->get_record('assign_mark', ['gradeid' => $grade->id, 'marker' => $grade->grader])) {
+            $record->mark = $mark;
+            $record->workflowstate = $workflowstate;
+            $record->timemodified = time();
+            $DB->update_record('assign_mark', $record);
+        } else {
+            $record = new stdClass();
+            $record->gradeid = $grade->id;
+            $record->timecreated = $record->timemodified = time();
+            $record->marker = $grade->grader;
+            $record->mark = $mark;
+            $record->workflowstate = $workflowstate;
+            $DB->insert_record('assign_mark', $record);
+        }
+
+        $marks = $DB->get_fieldset_sql('SELECT mark FROM {assign_mark} WHERE gradeid = :gradeid ORDER BY id', ['gradeid' => $grade->id]);
+        // Calculate the grade based on the marks.
+        switch ($this->get_instance()->multimarkmethod) {
+            case 'maximum':
+                if (count($marks) == $this->get_instance()->markercount) {
+                    $grade->grade = grade_floatval(max($marks));
+                    $this->update_grade($grade);
+                }
+                break;
+            case 'average':
+                if (count($marks) == $this->get_instance()->markercount) {
+                    $grade->grade = array_sum($marks) / count($marks);
+                    $this->update_grade($grade);
+                }
+                break;
+            case 'first':
+                $grade->grade = $marks[0];
+                $this->update_grade($grade);
+                break;
+        }
+    }
+
+    /**
      * View the grant extension date page.
      *
      * Uses url parameters 'userid'
@@ -4008,7 +4078,7 @@ class assign {
      * @return string
      */
     protected function view_single_grading_panel($args) {
-        global $DB, $CFG;
+        global $DB, $CFG, $USER;
 
         $o = '';
 
@@ -4102,9 +4172,14 @@ class assign {
             if ($grade->grade !== null && $grade->grade >= 0) {
                 $data->grade = format_float($grade->grade, $this->get_grade_item()->get_decimals());
             }
+
+            if ($record = $DB->get_record('assign_mark', ['gradeid' => $grade->id, 'marker' => $USER->id])) {
+                $data->mark = $record->mark;
+            }
         } else {
             $data = new stdClass();
             $data->grade = '';
+            $data->mark = '';
         }
 
         if (!empty($flags->workflowstate)) {
@@ -4129,7 +4204,8 @@ class assign {
                             'last' => $last,
                             'userid' => $userid,
                             'attemptnumber' => $attemptnumber,
-                            'gradingpanel' => true);
+                            'gradingpanel' => true,
+                            'marker' => $args['marker']);
 
         if (!empty($args['formdata'])) {
             $data = (array) $data;
@@ -4664,9 +4740,11 @@ class assign {
     /**
      * View entire grader app.
      *
+     * @param bool $marker True if we're adding a mark (when muliple markers
+     * are enabled), false if we're adding a grade.
      * @return string
      */
-    protected function view_grader() {
+    protected function view_grader($marker = false) {
         global $USER, $PAGE;
 
         $o = '';
@@ -4700,7 +4778,7 @@ class assign {
         $gradingtable->setup();
 
         $currentgroup = groups_get_activity_group($this->get_course_module(), true);
-        $framegrader = new grading_app($userid, $currentgroup, $this);
+        $framegrader = new grading_app($userid, $currentgroup, $this, $marker);
 
         $this->update_effective_access($userid);
 
@@ -5915,7 +5993,8 @@ class assign {
         }
 
         if ($this->can_view_grades()) {
-            $actionbuttons = new \mod_assign\output\actionmenu($this->get_course_module()->id);
+            $markercount = property_exists($this->get_instance(), 'markercount') ? $this->get_instance()->markercount : 1;
+            $actionbuttons = new \mod_assign\output\actionmenu($this->get_course_module()->id, $markercount);
             $o .= $this->get_renderer()->submission_actionmenu($actionbuttons);
 
             $summary = $this->get_assign_grading_summary_renderable();
@@ -7815,11 +7894,18 @@ class assign {
         } else {
             // Use simple direct grading.
             if ($this->get_instance()->grade > 0) {
-                $name = get_string('gradeoutof', 'assign', $this->get_instance()->grade);
                 if (!$gradingdisabled) {
-                    $gradingelement = $mform->addElement('text', 'grade', $name);
-                    $mform->addHelpButton('grade', 'gradeoutofhelp', 'assign');
-                    $mform->setType('grade', PARAM_RAW);
+                    if (array_key_exists('marker', $params) && $params['marker']) {
+                        $name = get_string('markoutof', 'assign', $this->get_instance()->grade);
+                        $gradingelement = $mform->addElement('text', 'mark', $name);
+                        $mform->addHelpButton('mark', 'markoutofhelp', 'assign');
+                        $mform->setType('mark', PARAM_RAW);
+                    } else {
+                        $name = get_string('gradeoutof', 'assign', $this->get_instance()->grade);
+                        $gradingelement = $mform->addElement('text', 'grade', $name);
+                        $mform->addHelpButton('grade', 'gradeoutofhelp', 'assign');
+                        $mform->setType('grade', PARAM_RAW);
+                    }
                 } else {
                     $strgradelocked = get_string('gradelocked', 'assign');
                     $mform->addElement('static', 'gradedisabled', $name, $strgradelocked);
@@ -8591,7 +8677,11 @@ class assign {
         }
 
         // We do not want to update the timemodified if no grade was added.
-        if (!empty($formdata->addattempt) ||
+        if (empty($formdata->addattempt) && property_exists($formdata, 'mark')) {
+            // FIXME Check if mark has changed before saving.
+            // FIXME What happens to marks when a new attempt is added?
+            $this->update_mark($grade, $formdata->mark, $formdata->workflowstate);
+        } else if (!empty($formdata->addattempt) ||
                 ($originalgrade !== null && $originalgrade != -1) ||
                 ($grade->grade !== null && $grade->grade != -1) ||
                 $feedbackmodified) {
@@ -8713,7 +8803,6 @@ class assign {
      * @return bool - was the grade saved
      */
     public function save_grade($userid, $data) {
-
         // Need grade permission.
         require_capability('mod/assign:grade', $this->context);
 

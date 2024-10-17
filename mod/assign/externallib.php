@@ -1542,6 +1542,7 @@ class mod_assign_external extends \mod_assign\external\external_api {
             array(
                 'assignmentid' => new external_value(PARAM_INT, 'The assignment id to operate on'),
                 'userid' => new external_value(PARAM_INT, 'The user id the submission belongs to'),
+                'marker' => new external_value(PARAM_BOOL, 'Flag, false if grading, true if marking'),
                 'jsonformdata' => new external_value(PARAM_RAW, 'The data from the grading form, encoded as a json array')
             )
         );
@@ -1556,7 +1557,7 @@ class mod_assign_external extends \mod_assign\external\external_api {
      * @return array of warnings to indicate any errors.
      * @since Moodle 3.1
      */
-    public static function submit_grading_form($assignmentid, $userid, $jsonformdata) {
+    public static function submit_grading_form($assignmentid, $userid, $marker, $jsonformdata) {
         global $CFG, $USER;
 
         require_once($CFG->dirroot . '/mod/assign/locallib.php');
@@ -1566,7 +1567,8 @@ class mod_assign_external extends \mod_assign\external\external_api {
                                             array(
                                                 'assignmentid' => $assignmentid,
                                                 'userid' => $userid,
-                                                'jsonformdata' => $jsonformdata
+                                                'jsonformdata' => $jsonformdata,
+                                                'marker' => $marker,
                                             ));
 
         list($assignment, $course, $cm, $context) = self::validate_assign($params['assignmentid']);
@@ -1582,7 +1584,8 @@ class mod_assign_external extends \mod_assign\external\external_api {
             'userid' => $params['userid'],
             'attemptnumber' => $data['attemptnumber'],
             'rownum' => 0,
-            'gradingpanel' => true
+            'gradingpanel' => true,
+            'marker' => $marker,
         );
 
         if (WS_SERVER) {
