@@ -238,6 +238,20 @@ class mod_assign_mod_form extends moodleform_mod {
         $mform->addHelpButton('markingallocation', 'markingallocation', 'assign');
         $mform->hideIf('markingallocation', 'markingworkflow', 'eq', 0);
 
+        $name = get_string('markercount', 'assign');
+        $mform->addElement('select', 'markercount', $name, ['1' => '1', '2' => '2']);
+        $mform->addHelpButton('markercount', 'markercount', 'assign');
+
+        $options = [
+            'maximum' => get_string('markgrademaximum', 'assign'),
+            'average' => get_string('markgradeaverage', 'assign'),
+            'first' => get_string('markgradefirst', 'assign'),
+        ];
+        $name = get_string('multimarkmethod', 'assign');
+        $mform->addElement('select', 'multimarkmethod', $name, $options);
+        $mform->addHelpButton('multimarkmethod', 'multimarkmethod', 'assign');
+        $mform->hideIf('multimarkmethod', 'markercount', 'eq', '1');
+
         $name = get_string('markinganonymous', 'assign');
         $mform->addElement('selectyesno', 'markinganonymous', $name);
         $mform->addHelpButton('markinganonymous', 'markinganonymous', 'assign');

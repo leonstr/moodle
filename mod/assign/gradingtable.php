@@ -441,6 +441,16 @@ class assign_grading_table extends table_sql implements renderable {
             $columns[] = 'allocatedmarker';
             $headers[] = get_string('marker', 'assign');
         }
+
+        // Multiple markers.
+        if (property_exists($assignment->get_instance(), 'markercount') &&
+                ($assignment->get_instance()->markercount > 1)) {
+            for ($i = 1; $i <= $assignment->get_instance()->markercount; $i++) {
+                $columns[] = "marker$i";
+                $headers[] = get_string('marker1', 'assign', $i);
+            }
+        }
+
         // Grade.
         $columns[] = 'grade';
         $headers[] = get_string('gradenoun');
@@ -1022,6 +1032,148 @@ class assign_grading_table extends table_sql implements renderable {
         // The table data is being downloaded, or the user cannot grade; therefore, only the formatted grade for display
         // is returned.
         return $displaygrade;
+    }
+
+    /**
+     * Format a column of data for display.
+     * FIXME There's got to be a better way to support a dynamic number of
+     * columns than duplicate code in col_marker1(), col_marker2(), etc.
+     *
+     * @param stdClass $row
+     * @return string
+     */
+    public function col_marker1(stdClass $row): string {
+        $col = 1;
+        $gradingdisabled = $this->assignment->grading_disabled($row->id, true, $this->gradinginfo);
+        $displaymark = "";
+
+        if (!$this->is_downloading() && $this->hasgrade) {
+            global $USER, $DB;
+            $displaymark = "";
+            $markrecords = $DB->get_records('assign_mark', ['gradeid' => $row->gradeid], 'id');
+            $alreadymarker = false;
+            $existingmarkers = [];
+            $i = 1;
+            foreach ($markrecords as $markrecord) {
+                $existingmarkers[$i++] = $markrecord;
+                if ($markrecord->marker == $USER->id) {
+                    $alreadymarker = true;
+                }
+            }
+
+            if (count($existingmarkers) >= $col) {
+                $displaymark = $this->display_grade($existingmarkers[$col]->mark, $this->quickgrading && !$gradingdisabled, $row->userid, $row->timemarked);
+            }
+
+            $urlparams = [
+                'id' => $this->assignment->get_course_module()->id,
+                'rownum' => 0,
+                'action' => 'marker',
+            ];
+
+            if ($this->assignment->is_blind_marking()) {
+                if (empty($row->recordid)) {
+                    $row->recordid = $this->assignment->get_uniqueid_for_user($row->userid);
+                }
+                $urlparams['blindid'] = $row->recordid;
+            } else {
+                $urlparams['userid'] = $row->userid;
+            }
+            $url = new moodle_url('/mod/assign/view.php', $urlparams);
+
+            // The container with the grade information.
+            $gradecontainer = $this->output->container($displaymark, 'w-100');
+
+            if (((count($existingmarkers) >= $col) && ($existingmarkers[$col]->marker == $USER->id)) ||
+                    ((count($existingmarkers) == $col - 1) && !$alreadymarker)) {
+                $menu = new action_menu();
+                $menu->set_owner_selector('.gradingtable-actionmenu');
+                $menu->set_boundary('window');
+                $menu->set_kebab_trigger(get_string('gradeactions', 'assign'));
+                $menu->set_additional_classes('ps-2 ms-auto');
+                // Prioritise the menu ahead of all other actions.
+                $menu->prioritise = true;
+                // Add the 'Mark' action item to the contextual menu.
+                $menu->add(new action_menu_link_secondary($url, null, get_string('markverb', 'assign')));
+                // The contextual menu container.
+                $contextualmenucontainer = $this->output->container($this->output->render($menu), 'd-flex');
+                return $this->output->container($gradecontainer . $contextualmenucontainer, ['class' => 'd-flex']);
+            }
+
+        }
+        // The table data is being downloaded, or the user cannot grade; therefore, only the formatted grade for display
+        // is returned.
+        return $displaymark;
+    }
+
+    /**
+     * Format a column of data for display.
+     *
+     * @param stdClass $row
+     * @return string
+     */
+    public function col_marker2(stdClass $row): string {
+        $col = 2;
+        $gradingdisabled = $this->assignment->grading_disabled($row->id, true, $this->gradinginfo);
+        $displaymark = "";
+
+        if (!$this->is_downloading() && $this->hasgrade) {
+            global $USER, $DB;
+            $displaymark = "";
+            $markrecords = $DB->get_records('assign_mark', ['gradeid' => $row->gradeid], 'id');
+            $alreadymarker = false;
+            $existingmarkers = [];
+            $i = 1;
+            foreach ($markrecords as $markrecord) {
+                $existingmarkers[$i++] = $markrecord;
+                if ($markrecord->marker == $USER->id) {
+                    $alreadymarker = true;
+                }
+            }
+
+            if (count($existingmarkers) >= $col) {
+                $displaymark = $this->display_grade($existingmarkers[$col]->mark, $this->quickgrading && !$gradingdisabled, $row->userid, $row->timemarked);
+            }
+
+            $urlparams = [
+                'id' => $this->assignment->get_course_module()->id,
+                'rownum' => 0,
+                'action' => 'marker',
+            ];
+
+            if ($this->assignment->is_blind_marking()) {
+                if (empty($row->recordid)) {
+                    $row->recordid = $this->assignment->get_uniqueid_for_user($row->userid);
+                }
+                $urlparams['blindid'] = $row->recordid;
+            } else {
+                $urlparams['userid'] = $row->userid;
+            }
+            $url = new moodle_url('/mod/assign/view.php', $urlparams);
+
+            // The container with the grade information.
+            $gradecontainer = $this->output->container($displaymark, 'w-100');
+
+            if (((count($existingmarkers) >= $col) && ($existingmarkers[$col]->marker == $USER->id)) ||
+                    ((count($existingmarkers) == $col - 1) && !$alreadymarker)) {
+                $menu = new action_menu();
+                $menu->set_owner_selector('.gradingtable-actionmenu');
+                $menu->set_boundary('window');
+                $menu->set_kebab_trigger(get_string('gradeactions', 'assign'));
+                $menu->set_additional_classes('ps-2 ms-auto');
+                // Prioritise the menu ahead of all other actions.
+                $menu->prioritise = true;
+                // Add the 'Mark' action item to the contextual menu.
+                $menu->add(new action_menu_link_secondary($url, null, get_string('markverb', 'assign')));
+                // The contextual menu container.
+                $contextualmenucontainer = $this->output->container($this->output->render($menu), 'd-flex');
+                return $this->output->container($gradecontainer . $contextualmenucontainer, ['class' => 'd-flex']);
+            }
+
+        }
+        // The table data is being downloaded, or the user cannot grade; therefore, only the formatted grade for display
+        // is returned.
+        return $displaymark;
     }
 
     /**
