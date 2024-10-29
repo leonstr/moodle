@@ -4175,7 +4175,7 @@ class assign {
             }
 
             if ($record = $DB->get_record('assign_mark', ['gradeid' => $grade->id, 'marker' => $USER->id])) {
-                $data->mark = $record->mark;
+                $data->mark = format_float($record->mark, $this->get_grade_item()->get_decimals());
             }
         } else {
             $data = new stdClass();
