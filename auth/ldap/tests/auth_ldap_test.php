@@ -564,6 +564,120 @@ final class auth_ldap_test extends \advanced_testcase {
         ldap_delete($connection, 'cn='.$user['username'].',ou=users,'.$topdn);
     }
 
+    /**
+     * Test "Synchronise local user suspension status".
+     */
+    public function test_ldap_suspend_sync(): void {
+        global $CFG, $DB;
+
+        if (!extension_loaded('ldap')) {
+            $this->markTestSkipped('LDAP extension is not loaded.');
+        }
+
+        $this->resetAfterTest();
+
+        if (!defined('TEST_AUTH_LDAP_HOST_URL') or !defined('TEST_AUTH_LDAP_BIND_DN') or !defined('TEST_AUTH_LDAP_BIND_PW') or !defined('TEST_AUTH_LDAP_DOMAIN')) {
+            $this->markTestSkipped('External LDAP test server not configured.');
+        }
+
+        // Make sure we can connect the server.
+        $debuginfo = '';
+        if (!$connection = ldap_connect_moodle(TEST_AUTH_LDAP_HOST_URL, 3, 'rfc2307', TEST_AUTH_LDAP_BIND_DN, TEST_AUTH_LDAP_BIND_PW, LDAP_DEREF_NEVER, $debuginfo, false)) {
+            $this->markTestSkipped('Can not connect to LDAP test server: '.$debuginfo);
+        }
+
+        $this->enable_plugin();
+
+        // Create new empty test container.
+        $topdn = 'dc=moodletest,'.TEST_AUTH_LDAP_DOMAIN;
+
+        $this->recursive_delete($connection, TEST_AUTH_LDAP_DOMAIN, 'dc=moodletest');
+
+        $o = [];
+        $o['objectClass'] = ['dcObject', 'organizationalUnit'];
+        $o['dc']         = 'moodletest';
+        $o['ou']         = 'MOODLETEST';
+        if (!ldap_add($connection, 'dc=moodletest,'.TEST_AUTH_LDAP_DOMAIN, $o)) {
+            $this->markTestSkipped('Can not create test LDAP container.');
+        }
+
+        // Create a user.
+        $o = [];
+        $o['objectClass'] = ['organizationalUnit'];
+        $o['ou']          = 'users';
+        ldap_add($connection, 'ou='.$o['ou'].','.$topdn, $o);
+        $this->create_ldap_user($connection, $topdn, 1);
+
+        // Configure the plugin a bit.
+        set_config('host_url', TEST_AUTH_LDAP_HOST_URL, 'auth_ldap');
+        set_config('start_tls', 0, 'auth_ldap');
+        set_config('ldap_version', 3, 'auth_ldap');
+        set_config('ldapencoding', 'utf-8', 'auth_ldap');
+        set_config('pagesize', 250, 'auth_ldap');
+        set_config('bind_dn', TEST_AUTH_LDAP_BIND_DN, 'auth_ldap');
+        set_config('bind_pw', TEST_AUTH_LDAP_BIND_PW, 'auth_ldap');
+        set_config('user_type', 'rfc2307', 'auth_ldap');
+        set_config('contexts', 'ou=users,'.$topdn, 'auth_ldap');
+        set_config('search_sub', 0, 'auth_ldap');
+        set_config('opt_deref', LDAP_DEREF_NEVER, 'auth_ldap');
+        set_config('user_attribute', 'cn', 'auth_ldap');
+        set_config('memberattribute', 'memberuid', 'auth_ldap');
+        set_config('memberattribute_isdn', 0, 'auth_ldap');
+        set_config('coursecreatorcontext', '');
+        set_config('removeuser', AUTH_REMOVEUSER_KEEP, 'auth_ldap');
+        set_config('sync_suspended', 1, 'auth_ldap');
+
+        set_config('field_map_email', 'mail', 'auth_ldap');
+        set_config('field_updatelocal_email', 'oncreate', 'auth_ldap');
+        set_config('field_updateremote_email', '0', 'auth_ldap');
+        set_config('field_lock_email', 'unlocked', 'auth_ldap');
+
+        set_config('field_map_firstname', 'givenName', 'auth_ldap');
+        set_config('field_updatelocal_firstname', 'oncreate', 'auth_ldap');
+        set_config('field_updateremote_firstname', '0', 'auth_ldap');
+        set_config('field_lock_firstname', 'unlocked', 'auth_ldap');
+
+        set_config('field_map_lastname', 'sn', 'auth_ldap');
+        set_config('field_updatelocal_lastname', 'oncreate', 'auth_ldap');
+        set_config('field_updateremote_lastname', '0', 'auth_ldap');
+        set_config('field_lock_lastname', 'unlocked', 'auth_ldap');
+
+        // The default InetOrgPerson class doesn't have a 'suspended' attribute
+        // so we'll put 1 or 0 in the 'pager' attribute and use that.
+        set_config('suspended_attribute', 'pager', 'auth_ldap');
+
+        $auth = get_auth_plugin('ldap');
+
+        ob_start();
+        $auth->sync_users(true);
+        ob_end_clean();
+
+        // No Moodle users should be suspended.
+        $this->assertEmpty($DB->get_records('user', ['suspended' => '1']));
+
+        $userdn = $auth->ldap_find_userdn($connection, 'username1');
+        ldap_modify($connection, $userdn, ['pager' => '1']);
+
+        ob_start();
+        $auth->sync_users(true);
+        ob_end_clean();
+
+        // Moodle user should now be suspended.
+        $this->assertCount(1, $DB->get_records('user', ['suspended' => '1']));
+
+        ldap_modify($connection, $userdn, ['pager' => '0']);
+
+        ob_start();
+        $auth->sync_users(true);
+        ob_end_clean();
+
+        // Moodle user should no longer be suspended.
+        $this->assertEmpty($DB->get_records('user', ['suspended' => '1']));
+
+        $this->recursive_delete($connection, TEST_AUTH_LDAP_DOMAIN, 'dc=moodletest');
+        ldap_close($connection);
+    }
+
     protected function create_ldap_user($connection, $topdn, $i) {
         $o = array();
         $o['objectClass']   = array('inetOrgPerson', 'organizationalPerson', 'person', 'posixAccount');

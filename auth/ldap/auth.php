@@ -860,6 +860,14 @@ class auth_plugin_ldap extends auth_plugin_base {
                 print_string('userentriestorevive', 'auth_ldap', count($revive_users));
 
                 foreach ($revive_users as $user) {
+                    if ($this->config->sync_suspended) {
+                        $userinfo = $this->get_userinfo($user->username);
+                        // Don't revive, the user is suspended in remote.
+                        if ($this->is_user_suspended((object) $userinfo)) {
+                            continue;
+                        }
+                    }
+
                     $updateuser = new stdClass();
                     $updateuser->id = $user->id;
                     $updateuser->auth = $this->authtype;

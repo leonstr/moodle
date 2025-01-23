@@ -676,8 +676,11 @@ class auth_plugin_base {
             if (!empty($updatekeys)) {
                 $newuser = new stdClass();
                 $newuser->id = $userid;
-                // The cast to int is a workaround for MDL-53959.
-                $newuser->suspended = (int) $suspenduser;
+                if (($user->suspended != $suspenduser) && in_array('suspended', $updatekeys)) {
+                    // The cast to int is a workaround for MDL-53959.
+                    $newuser->suspended = (int) $suspenduser;
+                    $needsupdate = true;
+                }
                 // Load all custom fields.
                 $profilefields = (array) profile_user_record($user->id, false);
                 $newprofilefields = [];
