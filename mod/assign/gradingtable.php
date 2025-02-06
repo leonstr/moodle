@@ -151,8 +151,7 @@ class assign_grading_table extends table_sql implements renderable {
         $fields .= 'uf.mailed as mailed, ';
         $fields .= 'uf.locked as locked, ';
         $fields .= 'uf.extensionduedate as extensionduedate, ';
-        $fields .= 'uf.workflowstate as workflowstate, ';
-        $fields .= 'uf.allocatedmarker as allocatedmarker';
+        $fields .= 'uf.workflowstate as workflowstate';
 
         $from = '{user} u
                          LEFT JOIN {assign_submission} s
@@ -342,10 +341,15 @@ class assign_grading_table extends table_sql implements renderable {
                 $markerfilter = (int)get_user_preferences('assign_markerfilter', '');
                 if (!empty($markerfilter)) {
                     if ($markerfilter == ASSIGN_MARKER_FILTER_NO_MARKER) {
-                        $where .= ' AND (uf.allocatedmarker IS NULL OR uf.allocatedmarker = 0)';
+                        $where .= ' AND am.markerid IS NULL';
                     } else {
-                        $where .= ' AND uf.allocatedmarker = :markerid';
+                        $from .= 'LEFT JOIN {assign_allocated_marker} am
+                                 ON u.id = am.studentid
+                                AND am.assignid = :assignmentid4 ';
+                        $where .= " AND am.markerid = :markerid";
+                        $params['assignmentid4'] = (int)$this->assignment->get_instance()->id;
                         $params['markerid'] = $markerfilter;
+
                     }
                 }
             }
@@ -433,14 +437,6 @@ class assign_grading_table extends table_sql implements renderable {
             $columns[] = 'team';
             $headers[] = get_string('submissionteam', 'assign');
         }
-        // Allocated marker.
-        if ($this->assignment->get_instance()->markingworkflow &&
-            $this->assignment->get_instance()->markingallocation &&
-            has_capability('mod/assign:manageallocations', $this->assignment->get_context())) {
-            // Add a column for the allocated marker.
-            $columns[] = 'allocatedmarker';
-            $headers[] = get_string('marker', 'assign');
-        }
 
         // Multiple markers.
         if (property_exists($assignment->get_instance(), 'markercount') &&
@@ -449,6 +445,12 @@ class assign_grading_table extends table_sql implements renderable {
                 $columns[] = "marker$i";
                 $headers[] = get_string('marker1', 'assign', $i);
             }
+        } else if ($this->assignment->get_instance()->markingworkflow &&
+                $this->assignment->get_instance()->markingallocation &&
+                has_capability('mod/assign:manageallocations', $this->assignment->get_context())) {
+            // Add a column for the allocated marker.
+            $columns[] = 'allocatedmarker';
+            $headers[] = get_string('marker', 'assign');
         }
 
         // Grade.
@@ -690,11 +692,18 @@ class assign_grading_table extends table_sql implements renderable {
      * list current marker
      *
      * @param stdClass $row - The row of data
-     * @return id the user->id of the marker.
+     * @return id the user->id of the marker. FIXME This isn't correct.
      */
-    public function col_allocatedmarker(stdClass $row) {
+    public function col_allocatedmarker(stdClass $row, int $markerpos = 1) {
+        global $DB;
         static $markers = null;
         static $markerlist = array();
+
+        $markers2 = $DB->get_fieldset('assign_allocated_marker', 'markerid', ['studentid' => $row->userid, 'assignid' => $this->assignment->get_instance()->id]);
+        if (!empty($row) && !empty($markers2)) {
+            $marker1 = fullname(\core_user::get_user($markers2[$markerpos - 1])); // FIXME $marker1 variable name.
+        }
+
         if ($markers === null) {
             list($sort, $params) = users_order_by_sql('u');
             // Only enrolled users could be assigned as potential markers.
@@ -725,17 +734,18 @@ class assign_grading_table extends table_sql implements renderable {
 
             $name = 'quickgrade_' . $row->id . '_allocatedmarker';
             return  html_writer::select($markerlist, $name, $row->allocatedmarker, false);
-        } else if (!empty($row->allocatedmarker)) {
+        } else if (!empty($markers2)) {
             $output = '';
             if ($this->quickgrading) { // Add hidden field for quickgrading page.
                 $name = 'quickgrade_' . $row->id . '_allocatedmarker';
                 $attributes = ['type' => 'hidden', 'name' => $name, 'value' => $row->allocatedmarker];
                 $output .= html_writer::empty_tag('input', $attributes);
             }
-            $output .= $markerlist[$row->allocatedmarker];
+            $output .= $marker1;
             return $output;
         }
     }
+
     /**
      * For download only - list all the valid options for this custom scale.
      *
@@ -1036,33 +1046,53 @@ class assign_grading_table extends table_sql implements renderable {
 
     /**
      * Format a column of data for display.
-     * FIXME There's got to be a better way to support a dynamic number of
-     * columns than duplicate code in col_marker1(), col_marker2(), etc.
      *
      * @param stdClass $row
      * @return string
      */
-    public function col_marker1(stdClass $row): string {
-        $col = 1;
+    public function col_marker(stdClass $row, int $col): string {
+        global $USER, $DB;
+        $allocatedmarker = "";
+
+        if ($this->assignment->get_instance()->markingworkflow &&
+                $this->assignment->get_instance()->markingallocation &&
+                has_capability('mod/assign:manageallocations', $this->assignment->get_context())) {
+            $allocatedmarker = $this->col_allocatedmarker($row, $col);
+        }
+
         $gradingdisabled = $this->assignment->grading_disabled($row->id, true, $this->gradinginfo);
         $displaymark = "";
 
         if (!$this->is_downloading() && $this->hasgrade) {
-            global $USER, $DB;
-            $displaymark = "";
-            $markrecords = $DB->get_records('assign_mark', ['gradeid' => $row->gradeid], 'id');
-            $alreadymarker = false;
-            $existingmarkers = [];
-            $i = 1;
-            foreach ($markrecords as $markrecord) {
-                $existingmarkers[$i++] = $markrecord;
-                if ($markrecord->marker == $USER->id) {
-                    $alreadymarker = true;
-                }
-            }
+            if ($this->assignment->get_instance()->markingworkflow &&
+                    $this->assignment->get_instance()->markingallocation) {
+                // Allocated markers are enabled: get the mark corresponding to
+                // the marker for this column.
+                $markers = array_values($DB->get_records('assign_allocated_marker', ['studentid' => $row->userid, 'assignid' => $this->assignment->get_instance()->id], 'id'));
 
-            if (count($existingmarkers) >= $col) {
-                $displaymark = $this->display_grade($existingmarkers[$col]->mark, $this->quickgrading && !$gradingdisabled, $row->userid, $row->timemarked);
+                if (count($markers) > $col - 1) {
+                    $mark = $DB->get_field('assign_mark', 'mark', ['gradeid' => $row->gradeid, 'marker' => $markers[$col - 1]->markerid]);
+                    if ($mark !== false) {
+                        $displaymark = $this->display_grade($mark, $this->quickgrading && !$gradingdisabled, $row->userid, $row->timemarked);
+                    }
+                }
+            } else {
+                // Allocated markers not enabled: get the marks in order and
+                // show the mark for this column.
+                $markrecords = $DB->get_records('assign_mark', ['gradeid' => $row->gradeid], 'id');
+                $alreadymarker = false;
+                $existingmarkers = [];
+                $i = 1;
+                foreach ($markrecords as $markrecord) {
+                    $existingmarkers[$i++] = $markrecord;
+                    if ($markrecord->marker == $USER->id) {
+                        $alreadymarker = true;
+                    }
+                }
+
+                if (count($existingmarkers) >= $col) {
+                    $displaymark = $this->display_grade($existingmarkers[$col]->mark, $this->quickgrading && !$gradingdisabled, $row->userid, $row->timemarked);
+                }
             }
 
             $urlparams = [
@@ -1084,8 +1114,25 @@ class assign_grading_table extends table_sql implements renderable {
             // The container with the grade information.
             $gradecontainer = $this->output->container($displaymark, 'w-100');
 
-            if (((count($existingmarkers) >= $col) && ($existingmarkers[$col]->marker == $USER->id)) ||
+            // Should this user get the 'Mark' action menu item?
+            $isallocatedmarker = false;  // Is allocated marker for column?
+            $iscandidatemarker = false;
+
+            if ($this->assignment->get_instance()->markingworkflow &&
+                    $this->assignment->get_instance()->markingallocation) {
+                // If allocated marking is enabled is this user the marker for
+                // this column?
+                if ($markers = $DB->get_fieldset('assign_allocated_marker', 'markerid', ['studentid' => $row->userid, 'assignid' => $this->assignment->get_instance()->id])) {
+                    $isallocatedmarker = ($markers[$col - 1] == $USER->id);
+                }
+            } else if (((count($existingmarkers) >= $col) && ($existingmarkers[$col]->marker == $USER->id)) ||
                     ((count($existingmarkers) == $col - 1) && !$alreadymarker)) {
+                // Is this user potentially a marker for this column, i.e. have
+                // they not yet marked?
+                $iscandidatemarker = true;
+            }
+
+            if ($isallocatedmarker || $iscandidatemarker) {
                 $menu = new action_menu();
                 $menu->set_owner_selector('.gradingtable-actionmenu');
                 $menu->set_boundary('window');
@@ -1097,83 +1144,17 @@ class assign_grading_table extends table_sql implements renderable {
                 $menu->add(new action_menu_link_secondary($url, null, get_string('markverb', 'assign')));
                 // The contextual menu container.
                 $contextualmenucontainer = $this->output->container($this->output->render($menu), 'd-flex');
-                return $this->output->container($gradecontainer . $contextualmenucontainer, ['class' => 'd-flex']);
+                return $allocatedmarker . $this->output->container($gradecontainer . $contextualmenucontainer, ['class' => 'd-flex']);
             }
 
         }
         // The table data is being downloaded, or the user cannot grade; therefore, only the formatted grade for display
         // is returned.
-        return $displaymark;
-    }
-
-    /**
-     * Format a column of data for display.
-     *
-     * @param stdClass $row
-     * @return string
-     */
-    public function col_marker2(stdClass $row): string {
-        $col = 2;
-        $gradingdisabled = $this->assignment->grading_disabled($row->id, true, $this->gradinginfo);
-        $displaymark = "";
-
-        if (!$this->is_downloading() && $this->hasgrade) {
-            global $USER, $DB;
-            $displaymark = "";
-            $markrecords = $DB->get_records('assign_mark', ['gradeid' => $row->gradeid], 'id');
-            $alreadymarker = false;
-            $existingmarkers = [];
-            $i = 1;
-            foreach ($markrecords as $markrecord) {
-                $existingmarkers[$i++] = $markrecord;
-                if ($markrecord->marker == $USER->id) {
-                    $alreadymarker = true;
-                }
-            }
-
-            if (count($existingmarkers) >= $col) {
-                $displaymark = $this->display_grade($existingmarkers[$col]->mark, $this->quickgrading && !$gradingdisabled, $row->userid, $row->timemarked);
-            }
-
-            $urlparams = [
-                'id' => $this->assignment->get_course_module()->id,
-                'rownum' => 0,
-                'action' => 'marker',
-            ];
-
-            if ($this->assignment->is_blind_marking()) {
-                if (empty($row->recordid)) {
-                    $row->recordid = $this->assignment->get_uniqueid_for_user($row->userid);
-                }
-                $urlparams['blindid'] = $row->recordid;
-            } else {
-                $urlparams['userid'] = $row->userid;
-            }
-            $url = new moodle_url('/mod/assign/view.php', $urlparams);
-
-            // The container with the grade information.
-            $gradecontainer = $this->output->container($displaymark, 'w-100');
-
-            if (((count($existingmarkers) >= $col) && ($existingmarkers[$col]->marker == $USER->id)) ||
-                    ((count($existingmarkers) == $col - 1) && !$alreadymarker)) {
-                $menu = new action_menu();
-                $menu->set_owner_selector('.gradingtable-actionmenu');
-                $menu->set_boundary('window');
-                $menu->set_kebab_trigger(get_string('gradeactions', 'assign'));
-                $menu->set_additional_classes('ps-2 ms-auto');
-                // Prioritise the menu ahead of all other actions.
-                $menu->prioritise = true;
-                // Add the 'Mark' action item to the contextual menu.
-                $menu->add(new action_menu_link_secondary($url, null, get_string('markverb', 'assign')));
-                // The contextual menu container.
-                $contextualmenucontainer = $this->output->container($this->output->render($menu), 'd-flex');
-                return $this->output->container($gradecontainer . $contextualmenucontainer, ['class' => 'd-flex']);
-            }
-
+        if ($this->is_downloading()) {
+            return $displaymark;
+        } else {
+            return $allocatedmarker . $this->output->container($gradecontainer, ['class' => 'd-flex']);
         }
-        // The table data is being downloaded, or the user cannot grade; therefore, only the formatted grade for display
-        // is returned.
-        return $displaymark;
     }
 
     /**
@@ -1762,6 +1743,10 @@ class assign_grading_table extends table_sql implements renderable {
      * @return mixed string or NULL
      */
     public function other_cols($colname, $row) {
+        if (str_starts_with($colname, 'marker') && ($col = substr($colname, 6))) {
+            return $this->col_marker($row, $col);
+        }
+
         // For extra user fields the result is already in $row.
         if (empty($this->plugincache[$colname])) {
             return parent::other_cols($colname, $row);

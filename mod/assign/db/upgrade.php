@@ -153,5 +153,79 @@ function xmldb_assign_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2024100700.06, 'assign');
     }
 
+    if ($oldversion < 2024100700.07) {
+        // Define field allocatedmarkers to be added to assign_user_flags.
+        $table = new xmldb_table('assign_user_flags');
+        $field = new xmldb_field('allocatedmarkers', XMLDB_TYPE_CHAR, '255', null, null, null, '');
+
+        // Conditionally launch add field allocatedmarkers.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Populate new field allocatedmarkers.
+        $DB->execute('UPDATE {assign_user_flags}
+                         SET allocatedmarkers = allocatedmarker');
+
+        // Define field allocatedmarker to be dropped from assign_user_flags.
+        $table = new xmldb_table('assign_user_flags');
+        $field = new xmldb_field('allocatedmarker');
+
+        // Conditionally launch drop field allocatedmarker.
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        // Assign savepoint reached.
+        upgrade_mod_savepoint(true, 2024100700.07, 'assign');
+    }
+
+    if ($oldversion < 2024100700.08) {
+        // Define table assign_allocated_marker to be created.
+        $table = new xmldb_table('assign_allocated_marker');
+
+        // Adding fields to table assign_allocated_marker.
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('studentid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('assignid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('markerid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+
+        // Adding keys to table assign_allocated_marker.
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+
+        // Conditionally launch create table for assign_allocated_marker.
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Populate assign_allocated_marker.
+        $sql = "SELECT userid, assignment, allocatedmarkers
+                  FROM {assign_user_flags}
+                 WHERE allocatedmarkers <> ''";
+        $rs = $DB->get_recordset_sql($sql);
+
+        foreach ($rs as $record) {
+            foreach(explode(',', $record->allocatedmarkers) as $markerid) {
+                $newrecord = new stdClass();
+                $newrecord->studentid = $record->userid;
+                $newrecord->assignid = $record->assignment;
+                $newrecord->markerid = $markerid;
+                $DB->insert_record('assign_allocated_marker', $newrecord);
+            }
+        }
+
+        // Define field allocatedmarker to be dropped from assign_user_flags.
+        $table = new xmldb_table('assign_user_flags');
+        $field = new xmldb_field('allocatedmarkers');
+
+        // Conditionally launch drop field allocatedmarker.
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        // Assign savepoint reached.
+        upgrade_mod_savepoint(true, 2024100700.08, 'assign');
+    }
+
     return true;
 }

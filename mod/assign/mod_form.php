@@ -239,7 +239,7 @@ class mod_assign_mod_form extends moodleform_mod {
         $mform->hideIf('markingallocation', 'markingworkflow', 'eq', 0);
 
         $name = get_string('markercount', 'assign');
-        $mform->addElement('select', 'markercount', $name, ['1' => '1', '2' => '2']);
+        $mform->addElement('select', 'markercount', $name, ['1' => '1', '2' => '2', '3' => '3', '4' => '4', '5' => '5']);
         $mform->addHelpButton('markercount', 'markercount', 'assign');
 
         $options = [

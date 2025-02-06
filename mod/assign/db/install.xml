@@ -137,7 +137,6 @@
         <FIELD NAME="mailed" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Has the student been sent a notification about this grade update?"/>
         <FIELD NAME="extensionduedate" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="An extension date assigned to an individual student."/>
         <FIELD NAME="workflowstate" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="The current workflow state of the grade"/>
-        <FIELD NAME="allocatedmarker" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="The allocated marker to this submission"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -181,6 +180,20 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
         <KEY NAME="gradeid" TYPE="foreign" FIELDS="gradeid" REFTABLE="assign_grades" REFFIELDS="id" COMMENT="Final grade record that this mark relates to"/>
         <KEY NAME="marker" TYPE="foreign" FIELDS="marker" REFTABLE="user" REFFIELDS="id" COMMENT="Marker who gave this mark"/>
+      </KEYS>
+    </TABLE>
+    <TABLE NAME="assign_allocated_marker" COMMENT="One or more teachers allocated to mark individual submissions">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="studentid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="The id of the student this marker is allocated to"/>
+        <FIELD NAME="assignid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="The id of the assignment this marker is allocated to"/>
+        <FIELD NAME="markerid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="The teacher allocated to mark this user+assignment"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="studentid" TYPE="foreign" FIELDS="studentid" REFTABLE="user" REFFIELDS="id" COMMENT="The id field of the user table"/>
+        <KEY NAME="assignid" TYPE="foreign" FIELDS="assignid" REFTABLE="assign" REFFIELDS="id" COMMENT="The assignment id these flags apply to"/>
+        <KEY NAME="markerid" TYPE="foreign" FIELDS="markerid" REFTABLE="user" REFFIELDS="id" COMMENT="The id field of the user table"/>
       </KEYS>
     </TABLE>
   </TABLES>
