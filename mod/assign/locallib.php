@@ -2346,13 +2346,11 @@ class assign {
                     !has_capability('mod/assign:manageallocations', $this->get_context()) &&
                     has_capability('mod/assign:grade', $this->get_context())) {
 
-                $additionaljoins .= ' LEFT JOIN {assign_user_flags} uf
-                                     ON u.id = uf.userid
-                                     AND uf.assignment = :assignmentid3';
-
-                $params['assignmentid3'] = (int) $instance->id;
-
-                $additionalfilters .= ' AND uf.allocatedmarker = :markerid';
+                $additionaljoins .= ' LEFT JOIN {assign_allocated_marker} am
+                                     ON u.id = am.studentid
+                                     AND am.assignid = :assignmentid3';
+                $additionalfilters .= " AND am.markerid = :markerid";
+                $params['assignmentid3'] = $instance->id;
                 $params['markerid'] = $USER->id;
             }
 
@@ -5291,6 +5289,7 @@ class assign {
         }
 
         $formparams['markers'] = $markerlist;
+        $formparams['markercount'] = $this->get_instance()->markercount;
 
         $mform = new mod_assign_batch_set_allocatedmarker_form(null, $formparams);
         $mform->set_data($formdata);    // Initialises the hidden elements.
@@ -8500,7 +8499,8 @@ class assign {
 
         $formparams = array(
             'userscount' => 0,  // This form is never re-displayed, so we don't need to
-            'usershtml' => ''   // initialise these parameters with real information.
+            'usershtml' => '',  // initialise these parameters with real information.
+            'markercount' => $this->get_instance()->markercount
         );
 
         list($sort, $params) = users_order_by_sql('u');
@@ -8521,7 +8521,12 @@ class assign {
 
         if ($formdata = $mform->get_data()) {
             $useridlist = explode(',', $formdata->selectedusers);
-            $marker = $DB->get_record('user', array('id' => $formdata->allocatedmarker), '*', MUST_EXIST);
+            $markers = [];
+            $markerindex = 1;
+            while (property_exists($formdata, 'allocatedmarker' . $markerindex)) {
+                $markers[] = $formdata->{'allocatedmarker' . $markerindex};
+                $markerindex++;
+            }
 
             foreach ($useridlist as $userid) {
                 $flags = $this->get_user_flags($userid, true);
@@ -8533,11 +8538,13 @@ class assign {
                     continue; // Allocated marker can only be changed in certain workflow states.
                 }
 
-                $flags->allocatedmarker = $marker->id;
-
-                if ($this->update_user_flags($flags)) {
-                    $user = $DB->get_record('user', array('id' => $userid), '*', MUST_EXIST);
-                    \mod_assign\event\marker_updated::create_from_marker($this, $user, $marker)->trigger();
+                $DB->delete_records('assign_allocated_marker', ['studentid' => $userid, 'assignid' => $flags->assignment]);
+                foreach ($markers as $marker) {
+                    $record = new stdClass();
+                    $record->studentid = $userid;
+                    $record->assignid = $flags->assignment;
+                    $record->markerid = $marker;
+                    $DB->insert_record('assign_allocated_marker', $record);
                 }
             }
         }
