@@ -2343,9 +2343,9 @@ class assign {
                     has_capability('mod/assign:grade', $this->get_context())) {
 
                 $additionaljoins .= ' LEFT JOIN {assign_allocated_marker} am
-                                     ON u.id = am.studentid
-                                     AND am.assignid = :assignmentid3';
-                $additionalfilters .= " AND am.markerid = :markerid";
+                                     ON u.id = am.student
+                                     AND am.assignment = :assignmentid3';
+                $additionalfilters .= " AND am.marker = :markerid";
                 $params['assignmentid3'] = $instance->id;
                 $params['markerid'] = $USER->id;
             }
@@ -3054,9 +3054,7 @@ class assign {
 
     /**
      * Add or update an mdl_assign_mark record.
-     * @param int $gradeid The corresponding mdl_assign_grades record for this
-     * mark, that is, the record where the grade field will be populated when
-     * all necessary marks are awarded allowing the grade to be set.
+     * @param stdClass $grade a grade record.
      * @param int $marker The user ID of this marker.
      * @param float $mark The mark awarded by this marker, for example, 55.2.
      * @param FIXME $workflowstate
@@ -3071,6 +3069,7 @@ class assign {
             $DB->update_record('assign_mark', $record);
         } else {
             $record = new stdClass();
+            $record->assignment = $grade->assignment;
             $record->gradeid = $grade->id;
             $record->timecreated = $record->timemodified = time();
             $record->marker = $grade->grader;
@@ -8537,12 +8536,12 @@ class assign {
                     continue; // Allocated marker can only be changed in certain workflow states.
                 }
 
-                $DB->delete_records('assign_allocated_marker', ['studentid' => $userid, 'assignid' => $flags->assignment]);
+                $DB->delete_records('assign_allocated_marker', ['student' => $userid, 'assignment' => $flags->assignment]);
                 foreach ($markers as $marker) {
                     $record = new stdClass();
-                    $record->studentid = $userid;
-                    $record->assignid = $flags->assignment;
-                    $record->markerid = $marker;
+                    $record->student = $userid;
+                    $record->assignment = $flags->assignment;
+                    $record->marker = $marker;
                     $DB->insert_record('assign_allocated_marker', $record);
                 }
             }
