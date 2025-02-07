@@ -227,5 +227,41 @@ function xmldb_assign_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2024100700.08, 'assign');
     }
 
+    if ($oldversion < 2024100700.09) {
+        // Define table assign_allocated_marker to be modified.
+        $table = new xmldb_table('assign_allocated_marker');
+
+        $field = new xmldb_field('studentid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $dbman->rename_field($table, $field, 'student');
+
+        $field = new xmldb_field('assignid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $dbman->rename_field($table, $field, 'assignment');
+
+        $field = new xmldb_field('markerid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $dbman->rename_field($table, $field, 'marker');
+
+        // Define table assign_mark to be modified.
+        $table = new xmldb_table('assign_mark');
+
+        // Add field assignment.  This field is just so that rows are
+        // associated with the corresponding assignment during backup/restore.
+        $field = new xmldb_field('assignment', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'id');
+
+        // Conditionally launch add field assignment.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $DB->execute("UPDATE {assign_mark} am
+                        JOIN {assign_grades} ag ON am.gradeid = ag.id
+                         SET am.assignment = ag.assignment");
+
+        $field = new xmldb_field('assignment', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $dbman->change_field_notnull($table, $field);
+
+        // Assign savepoint reached.
+        upgrade_mod_savepoint(true, 2024100700.09, 'assign');
+    }
+
     return true;
 }
