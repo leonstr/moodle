@@ -344,9 +344,9 @@ class assign_grading_table extends table_sql implements renderable {
                         $where .= ' AND am.markerid IS NULL';
                     } else {
                         $from .= 'LEFT JOIN {assign_allocated_marker} am
-                                 ON u.id = am.studentid
-                                AND am.assignid = :assignmentid4 ';
-                        $where .= " AND am.markerid = :markerid";
+                                 ON u.id = am.student
+                                AND am.assignment = :assignmentid4 ';
+                        $where .= " AND am.marker = :markerid";
                         $params['assignmentid4'] = (int)$this->assignment->get_instance()->id;
                         $params['markerid'] = $markerfilter;
 
@@ -699,7 +699,7 @@ class assign_grading_table extends table_sql implements renderable {
         static $markers = null;
         static $markerlist = array();
 
-        $markers2 = $DB->get_fieldset('assign_allocated_marker', 'markerid', ['studentid' => $row->userid, 'assignid' => $this->assignment->get_instance()->id]);
+        $markers2 = $DB->get_fieldset('assign_allocated_marker', 'marker', ['student' => $row->userid, 'assignment' => $this->assignment->get_instance()->id]);
         if (!empty($row) && !empty($markers2)) {
             $marker1 = fullname(\core_user::get_user($markers2[$markerpos - 1])); // FIXME $marker1 variable name.
         }
@@ -1068,10 +1068,10 @@ class assign_grading_table extends table_sql implements renderable {
                     $this->assignment->get_instance()->markingallocation) {
                 // Allocated markers are enabled: get the mark corresponding to
                 // the marker for this column.
-                $markers = array_values($DB->get_records('assign_allocated_marker', ['studentid' => $row->userid, 'assignid' => $this->assignment->get_instance()->id], 'id'));
+                $markers = array_values($DB->get_records('assign_allocated_marker', ['student' => $row->userid, 'assignment' => $this->assignment->get_instance()->id], 'id'));
 
                 if (count($markers) > $col - 1) {
-                    $mark = $DB->get_field('assign_mark', 'mark', ['gradeid' => $row->gradeid, 'marker' => $markers[$col - 1]->markerid]);
+                    $mark = $DB->get_field('assign_mark', 'mark', ['gradeid' => $row->gradeid, 'marker' => $markers[$col - 1]->marker]);
                     if ($mark !== false) {
                         $displaymark = $this->display_grade($mark, $this->quickgrading && !$gradingdisabled, $row->userid, $row->timemarked);
                     }
@@ -1122,7 +1122,8 @@ class assign_grading_table extends table_sql implements renderable {
                     $this->assignment->get_instance()->markingallocation) {
                 // If allocated marking is enabled is this user the marker for
                 // this column?
-                if ($markers = $DB->get_fieldset('assign_allocated_marker', 'markerid', ['studentid' => $row->userid, 'assignid' => $this->assignment->get_instance()->id])) {
+                $markers = $DB->get_fieldset('assign_allocated_marker', 'marker', ['student' => $row->userid, 'assignment' => $this->assignment->get_instance()->id]);
+                if ($markers = $DB->get_fieldset('assign_allocated_marker', 'marker', ['student' => $row->userid, 'assignment' => $this->assignment->get_instance()->id])) {
                     $isallocatedmarker = ($markers[$col - 1] == $USER->id);
                 }
             } else if (((count($existingmarkers) >= $col) && ($existingmarkers[$col]->marker == $USER->id)) ||
