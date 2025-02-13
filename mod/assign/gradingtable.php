@@ -1002,10 +1002,26 @@ class assign_grading_table extends table_sql implements renderable {
      * @return string
      */
     public function col_grade(stdClass $row): string {
+        global $DB, $USER;
+
         $gradingdisabled = $this->assignment->grading_disabled($row->id, true, $this->gradinginfo);
         $displaygrade = $this->display_grade($row->grade, $this->quickgrading && !$gradingdisabled, $row->userid, $row->timemarked);
 
-        if (!$this->is_downloading() && $this->hasgrade) {
+        // If assignment uses multiple markers with the manual (aka agreement)
+        // method then the grader must be an existing marker so only show the
+        // action menu if they are.
+        $multimarkcannotgrade = false;
+
+        // FIXME We're assuming multimarkmethod == 'manual' implies markercount
+        // > 1, but will that always be the case?
+        if (property_exists($this->assignment->get_instance(), 'multimarkmethod')
+                && ($this->assignment->get_instance()->multimarkmethod === 'manual')
+                && !$DB->get_record('assign_mark', ['gradeid' => $row->gradeid, 'marker' => $USER->id])
+                && !$DB->get_record('assign_allocated_marker', ['assignment' => $this->assignment->get_instance()->id, 'marker' => $USER->id])) {
+            $multimarkcannotgrade = true;
+        }
+
+        if (!$this->is_downloading() && $this->hasgrade && !$multimarkcannotgrade) {
             $urlparams = [
                 'id' => $this->assignment->get_course_module()->id,
                 'rownum' => 0,

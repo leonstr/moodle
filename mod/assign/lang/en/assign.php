@@ -380,6 +380,7 @@ $string['markerfilter'] = 'Marker filter';
 $string['markerfilternomarker'] = 'No marker';
 $string['markgradeaverage'] = 'Average mark';
 $string['markgradefirst'] = 'First mark only';
+$string['markgrademanual'] = 'Manual';
 $string['markgrademaximum'] = 'Maximum mark';
 $string['markingallocation'] = 'Use marking allocation';
 $string['markingallocation_help'] = 'If enabled together with marking workflow, markers can be allocated to particular students.';

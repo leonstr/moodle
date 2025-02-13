@@ -243,6 +243,7 @@ class mod_assign_mod_form extends moodleform_mod {
         $mform->addHelpButton('markercount', 'markercount', 'assign');
 
         $options = [
+            'manual' => get_string('markgrademanual', 'assign'),
             'maximum' => get_string('markgrademaximum', 'assign'),
             'average' => get_string('markgradeaverage', 'assign'),
             'first' => get_string('markgradefirst', 'assign'),

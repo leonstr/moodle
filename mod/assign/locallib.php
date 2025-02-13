@@ -3059,15 +3059,17 @@ class assign {
      * @param float $mark The mark awarded by this marker, for example, 55.2.
      * @param FIXME $workflowstate
      */
-    public function update_mark($grade, $mark, $workflowstate) {
+    public function update_mark($grade, $mark, $workflowstate = null) {
         global $DB;
 
-        if ($record = $DB->get_record('assign_mark', ['gradeid' => $grade->id, 'marker' => $grade->grader])) {
+        if ($record = $this->get_mark($grade->id, $grade->grader)) {
+            $updategrade = ($record->mark != $mark);
             $record->mark = $mark;
             $record->workflowstate = $workflowstate;
             $record->timemodified = time();
             $DB->update_record('assign_mark', $record);
         } else {
+            $updategrade = true;
             $record = new stdClass();
             $record->assignment = $grade->assignment;
             $record->gradeid = $grade->id;
@@ -3076,6 +3078,10 @@ class assign {
             $record->mark = $mark;
             $record->workflowstate = $workflowstate;
             $DB->insert_record('assign_mark', $record);
+        }
+
+        if (!$updategrade) {
+            return;
         }
 
         $marks = $DB->get_fieldset_sql('SELECT mark FROM {assign_mark} WHERE gradeid = :gradeid ORDER BY id', ['gradeid' => $grade->id]);
@@ -3096,6 +3102,8 @@ class assign {
             case 'first':
                 $grade->grade = $marks[0];
                 $this->update_grade($grade);
+                break;
+            case 'manual':
                 break;
         }
     }
@@ -4056,6 +4064,19 @@ class assign {
     }
 
     /**
+     * Get the mark object -- if it exists -- that corresponds to the specified
+     * marker and grade.
+     * @param int $markerid
+     * @param int $gradeid
+     * @return stdClass|false
+     */
+    public function get_mark(int $gradeid, int $markerid): stdClass|false {
+        global $DB;
+
+        return $DB->get_record('assign_mark', ['gradeid' => $gradeid, 'marker' => $markerid]);
+    }
+
+    /**
      * This will retrieve a grade object from the db.
      *
      * @param int $gradeid The id of the grade
@@ -4170,7 +4191,7 @@ class assign {
                 $data->grade = format_float($grade->grade, $this->get_grade_item()->get_decimals());
             }
 
-            if ($record = $DB->get_record('assign_mark', ['gradeid' => $grade->id, 'marker' => $USER->id])) {
+            if ($record = $this->get_mark($grade->id, $USER->id)) {
                 $data->mark = format_float($record->mark, $this->get_grade_item()->get_decimals());
             }
         } else {
@@ -8686,7 +8707,11 @@ class assign {
         if (empty($formdata->addattempt) && property_exists($formdata, 'mark')) {
             // FIXME Check if mark has changed before saving.
             // FIXME What happens to marks when a new attempt is added?
-            $this->update_mark($grade, $formdata->mark, $formdata->workflowstate);
+            if (isset($formdata->workflowstate)) {
+                $this->update_mark($grade, $formdata->mark, $formdata->workflowstate);
+            } else {
+                $this->update_mark($grade, $formdata->mark);
+            }
         } else if (!empty($formdata->addattempt) ||
                 ($originalgrade !== null && $originalgrade != -1) ||
                 ($grade->grade !== null && $grade->grade != -1) ||
