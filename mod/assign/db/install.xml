@@ -179,6 +179,7 @@
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="assignment" TYPE="foreign" FIELDS="assignment" REFTABLE="assign" REFFIELDS="id" COMMENT="The assignment id these marks apply to"/>
         <KEY NAME="gradeid" TYPE="foreign" FIELDS="gradeid" REFTABLE="assign_grades" REFFIELDS="id" COMMENT="Final grade record that this mark relates to"/>
         <KEY NAME="marker" TYPE="foreign" FIELDS="marker" REFTABLE="user" REFFIELDS="id" COMMENT="Marker who gave this mark"/>
       </KEYS>
@@ -192,9 +193,9 @@
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="studentid" TYPE="foreign" FIELDS="studentid" REFTABLE="user" REFFIELDS="id" COMMENT="The id field of the user table"/>
-        <KEY NAME="assignid" TYPE="foreign" FIELDS="assignid" REFTABLE="assign" REFFIELDS="id" COMMENT="The assignment id these flags apply to"/>
-        <KEY NAME="markerid" TYPE="foreign" FIELDS="markerid" REFTABLE="user" REFFIELDS="id" COMMENT="The id field of the user table"/>
+        <KEY NAME="student" TYPE="foreign" FIELDS="student" REFTABLE="user" REFFIELDS="id" COMMENT="The id field of the user table"/>
+        <KEY NAME="assignment" TYPE="foreign" FIELDS="assignment" REFTABLE="assign" REFFIELDS="id" COMMENT="The assignment id these flags apply to"/>
+        <KEY NAME="marker" TYPE="foreign" FIELDS="marker" REFTABLE="user" REFFIELDS="id" COMMENT="The id field of the user table"/>
       </KEYS>
     </TABLE>
   </TABLES>
