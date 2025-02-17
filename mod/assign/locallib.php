@@ -2346,6 +2346,10 @@ class assign {
                 }
             }
 
+            if ($this->show_only_active_users()) {
+                $additionalfilters .= " AND u.suspended = 0 AND u.auth <> 'nologin'";
+            }
+
             $sql = "SELECT $fields
                       FROM {user} u
                       JOIN ($esql UNION $ssql) je ON je.id = u.id
