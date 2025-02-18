@@ -76,13 +76,18 @@ class notification_helper {
         $users = get_enrolled_users(
             context: \context_module::instance($quizobj->get_cm()->id),
             withcapability: 'mod/quiz:attempt',
-            userfields: 'u.id, u.firstname',
+            userfields: 'u.id, u.firstname, u.suspended, u.auth',
         );
 
         // Check for any override dates.
         $overrides = $quizobj->get_override_manager()->get_all_overrides();
 
         foreach ($users as $key => $user) {
+            if ($user->suspended || ($user->auth == 'nologin')) {
+                unset($users[$key]);
+                continue;
+            }
+
             // Time open and time close dates can be user specific with an override.
             // We begin by assuming it is the same as recorded in the quiz.
             $user->timeopen = $quiz->timeopen;
