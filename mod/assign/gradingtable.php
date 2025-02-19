@@ -1012,12 +1012,16 @@ class assign_grading_table extends table_sql implements renderable {
         // action menu if they are.
         $multimarkcannotgrade = false;
 
+        // If we're using multiple markers with the multimark method set to
+        // "manual" (i.e. the grade is not automatically calculated and must
+        // be manually set) then only an existing marker (or, if using
+        // allocated markers, an allocated marker) can set that grade.
         // FIXME We're assuming multimarkmethod == 'manual' implies markercount
         // > 1, but will that always be the case?
         if (property_exists($this->assignment->get_instance(), 'multimarkmethod')
                 && ($this->assignment->get_instance()->multimarkmethod === 'manual')
                 && !$DB->get_record('assign_mark', ['gradeid' => $row->gradeid, 'marker' => $USER->id])
-                && !$DB->get_record('assign_allocated_marker', ['assignment' => $this->assignment->get_instance()->id, 'marker' => $USER->id])) {
+                && !$DB->get_record('assign_allocated_marker', ['assignment' => $this->assignment->get_instance()->id, 'marker' => $USER->id, 'student' => $row->userid])) {
             $multimarkcannotgrade = true;
         }
 
