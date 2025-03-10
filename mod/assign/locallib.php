@@ -2357,6 +2357,16 @@ class assign {
                            $additionalfilters
                   ORDER BY $orderby";
 
+            $records = $DB->get_records_sql("EXPLAIN $sql", $params);
+            foreach ($records as $record) {
+                echo "<!--\n" . print_r($record, true) . "\n-->\n";
+            }
+
+            $records = $DB->get_records_sql("EXPLAIN ANALYZE $sql", $params);
+            foreach ($records as $record) {
+                echo "<!--\n" . print_r($record, true) . "\n-->\n";
+            }
+
             $users = $DB->get_records_sql($sql, $params);
 
             $cm = $this->get_course_module();
