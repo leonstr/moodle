@@ -2366,6 +2366,18 @@ class assign {
             foreach ($records as $record) {
                 echo "<!--\n" . print_r($record, true) . "\n-->\n";
             }
+            $record = $DB->get_record_sql("SHOW CREATE TABLE mdl_assign_submission");
+            echo "<!--\n" . print_r($record, true) . "\n-->\n";
+            $record = $DB->get_record_sql("SHOW CREATE TABLE mdl_assign_user_mapping");
+            echo "<!--\n" . print_r($record, true) . "\n-->\n";
+            $record = $DB->get_record_sql("SHOW CREATE TABLE mdl_enrol");
+            echo "<!--\n" . print_r($record, true) . "\n-->\n";
+            $record = $DB->get_record_sql("SHOW CREATE TABLE mdl_role_assignments");
+            echo "<!--\n" . print_r($record, true) . "\n-->\n";
+            $record = $DB->get_record_sql("SHOW CREATE TABLE mdl_user");
+            echo "<!--\n" . print_r($record, true) . "\n-->\n";
+            $record = $DB->get_record_sql("SHOW CREATE TABLE mdl_user_enrolments");
+            echo "<!--\n" . print_r($record, true) . "\n-->\n";
 
             $users = $DB->get_records_sql($sql, $params);
 
