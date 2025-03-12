@@ -2357,6 +2357,8 @@ class assign {
                            $additionalfilters
                   ORDER BY $orderby";
 
+            echo "\n<!--\n$sql\n-->\n";
+            echo "\n<!--\n" . print_r($params, true) . "\n-->\n";
             $records = $DB->get_records_sql("EXPLAIN $sql", $params);
             foreach ($records as $record) {
                 echo "<!--\n" . print_r($record, true) . "\n-->\n";
@@ -2366,18 +2368,6 @@ class assign {
             foreach ($records as $record) {
                 echo "<!--\n" . print_r($record, true) . "\n-->\n";
             }
-            $record = $DB->get_record_sql("SHOW CREATE TABLE mdl_assign_submission");
-            echo "<!--\n" . print_r($record, true) . "\n-->\n";
-            $record = $DB->get_record_sql("SHOW CREATE TABLE mdl_assign_user_mapping");
-            echo "<!--\n" . print_r($record, true) . "\n-->\n";
-            $record = $DB->get_record_sql("SHOW CREATE TABLE mdl_enrol");
-            echo "<!--\n" . print_r($record, true) . "\n-->\n";
-            $record = $DB->get_record_sql("SHOW CREATE TABLE mdl_role_assignments");
-            echo "<!--\n" . print_r($record, true) . "\n-->\n";
-            $record = $DB->get_record_sql("SHOW CREATE TABLE mdl_user");
-            echo "<!--\n" . print_r($record, true) . "\n-->\n";
-            $record = $DB->get_record_sql("SHOW CREATE TABLE mdl_user_enrolments");
-            echo "<!--\n" . print_r($record, true) . "\n-->\n";
 
             $users = $DB->get_records_sql($sql, $params);
 
