@@ -3785,6 +3785,7 @@ function get_with_capability_join(context $context, $capability, $useridcolumn) 
                                                           AND roleid IN (" . implode(',', array_keys($prohibited[$cap])) . "))";
 
                 } else {
+                    /*
                     $unions[] = "SELECT userid
                                    FROM {role_assignments}
                                   WHERE contextid IN ($ctxids) AND roleid IN (" . implode(',', array_keys($needed[$cap])) . ")
@@ -3793,6 +3794,11 @@ function get_with_capability_join(context $context, $capability, $useridcolumn) 
                                               FROM {role_assignments}
                                              WHERE contextid IN ($ctxids)
                                                    AND roleid IN (" . implode(',', array_keys($prohibited[$cap])) . "))";
+                */
+                    $unions[] = "SELECT ra1.userid
+                                   FROM {role_assignments} ra1
+                              LEFT JOIN {role_assignments} ra2 ON ra1.userid = ra2.userid AND ra2.contextid IN ($ctxids) AND ra2.roleid IN (" . implode(',', array_keys($prohibited[$cap])) . ")
+                              WHERE ra1.contextid IN ($ctxids) AND ra1.roleid IN (" . implode(',', array_keys($needed[$cap])) . ") AND ra2.userid IS NULL";
                 }
             }
         }
