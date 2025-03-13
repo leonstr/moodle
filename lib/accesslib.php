@@ -3797,8 +3797,8 @@ function get_with_capability_join(context $context, $capability, $useridcolumn) 
                 */
                     $unions[] = "SELECT ra1.userid
                                    FROM {role_assignments} ra1
-                              LEFT JOIN {role_assignments} ra2 ON ra1.userid = ra2.userid AND ra2.contextid IN ($ctxids) AND ra2.roleid IN (" . implode(',', array_keys($prohibited[$cap])) . ")
-                              WHERE ra1.contextid IN ($ctxids) AND ra1.roleid IN (" . implode(',', array_keys($needed[$cap])) . ") AND ra2.userid IS NULL";
+                                  WHERE ra1.contextid IN ($ctxids) AND ra1.roleid IN (" . implode(',', array_keys($needed[$cap])) . ")
+                                  AND NOT EXISTS (SELECT 1 FROM {role_assignments} ra2 WHERE ra2.contextid IN ($ctxids) AND ra2.roleid IN (" . implode(',', array_keys($prohibited[$cap])) . ") AND ra2.userid = ra1.userid)";
                 }
             }
         }
