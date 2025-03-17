@@ -2357,23 +2357,6 @@ class assign {
                            $additionalfilters
                   ORDER BY $orderby";
 
-            echo "\n<!--\n$sql\n-->\n";
-            echo "\n<!--\n" . print_r($params, true) . "\n-->\n";
-            $records = $DB->get_records_sql("EXPLAIN $sql", $params);
-            foreach ($records as $record) {
-                echo "<!--\n" . print_r($record, true) . "\n-->\n";
-            }
-
-            $records = $DB->get_records_sql("EXPLAIN ANALYZE $sql", $params);
-            foreach ($records as $record) {
-                echo "<!--\n" . print_r($record, true) . "\n-->\n";
-            }
-
-            $count = $DB->count_records('role_assignments');
-            echo "\n<!-- $count rows in mdl_role_assignments -->\n";
-            $count = $DB->count_records_sql("SELECT COUNT(id) FROM {role_assignments} WHERE contextid IN (1,7438445,7438446,7439303,7439331,8362472,8515898) AND roleid IN (33,40,41)");
-            echo "\n<!-- $count prohibited assigned user roles -->\n";
-
             $users = $DB->get_records_sql($sql, $params);
 
             $cm = $this->get_course_module();
