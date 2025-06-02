@@ -27,6 +27,8 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/question/type/match/question.php');
 
+use core_question\local\bank\question_version_status;
+
 /**
  * Represents a randomsamatch question.
  *
@@ -102,6 +104,106 @@ class qtype_randomsamatch_question extends qtype_match_question {
             $this->choices[$key] = $step->get_qt_var('_choice_' . $key);
         }
         parent::apply_attempt_state($step);
+    }
+
+    /**
+     * Get the latest version of a question that's ready for use.
+     *
+     * @param int $stemid Question ID.
+     * @return question_definition The latest version of the question
+     * corresponding to the specified ID, or null if there are no versions
+     * available (none have status = "ready").
+     */
+    private function get_latest_stem_version(int $stemid): ?question_definition {
+        $stemversions = question_bank::get_all_versions_of_question($stemid);
+
+        foreach ($stemversions as $stemversion) {
+            $stem = question_bank::load_question($stemversion->questionid);
+            if ($stem->status == question_version_status::QUESTION_STATUS_READY) {
+                return $stem;
+            }
+        }
+
+        return null;
+    }
+
+    #[\Override]
+    public function validate_can_regrade_with_other_version(question_definition $otherversion): ?string {
+        global $DB;
+
+        if ($this->choose !== $otherversion->choose) {
+            return get_string('choosehaschanged', 'qtype_randomsamatch');
+        }
+
+        // Check if the short-answer questions used by this attempt are
+        // available. Unfortunately we can't verify these prior to calling
+        // update_attempt_state_data_for_new_version() because
+        // $otherversion->stems is not populated prior to this. Consequently if
+        // the check below fails the teacher gets a scary red error instead of
+        // a yellow warning.
+        foreach ($otherversion->stems as $stemid => $unused) {
+            if (!$DB->record_exists('question', ['id' => $stemid])) {
+                return get_string('questiondeleted', 'qtype_randomsamatch', $stemid);
+            }
+
+            if (!$this->get_latest_stem_version($stemid)) {
+                return get_string('questionnotready', 'qtype_randomsamatch', $stemid);
+            }
+        }
+
+        return null;
+    }
+
+    #[\Override]
+    public function update_attempt_state_data_for_new_version(
+            question_attempt_step $oldstep, question_definition $otherversion) {
+        $message = $this->validate_can_regrade_with_other_version($otherversion);
+        if ($message) {
+            throw new moodle_exception('cannotregrade', 'qtype_randomsamatch', '', $message);
+        }
+
+        $startdata = $oldstep->get_qt_data();
+        $stemids = explode(',', $oldstep->get_qt_var('_stemorder'));
+        $stems = [];
+        $choicesmap = [];
+
+        foreach ($stemids as $oldstemid) {
+            $stem = $this->get_latest_stem_version($oldstemid);
+
+            // If the latest version of the short-answer question is different
+            // to that in the attempt update the corresponding attempt values.
+            if ($stem->id !== $oldstemid) {
+                unset($startdata['_stem_' . $oldstemid]);
+                $startdata['_stem_' . $stem->id] = $stem->questiontext;
+                unset($startdata['_stemformat_' . $oldstemid]);
+                $startdata['_stemformat_' . $stem->id] = $stem->questiontextformat;
+                $rightchoice = $this->find_right_answer($stem);
+                $choicesmap[$startdata['_right_' . $oldstemid]] = $rightchoice;
+                unset($startdata['_right_' . $oldstemid]);
+                $startdata['_right_' . $stem->id] = $rightchoice;
+            }
+
+            $stems[] = $stem->id;
+        }
+
+        $startdata['_stemorder'] = implode(',', $stems);
+        $choiceids = explode(',', $oldstep->get_qt_var('_choiceorder'));
+        $newchoiceids = [];
+
+        // If there's a new version of the short-answer question update the
+        // corresponding choice values.
+        foreach ($choiceids as $key => $oldchoiceid) {
+            if (isset($choicesmap[$oldchoiceid])) {
+                $newchoiceid = $choicesmap[$oldchoiceid];
+                unset($startdata['_choice_' . $oldchoiceid]);
+                $startdata['_choice_' . $newchoiceid] = $this->choices[$newchoiceid];
+                $choiceids[$key] = $newchoiceid;
+            }
+        }
+
+        $startdata['_choiceorder'] = implode(',', $choiceids);
+
+        return $startdata;
     }
 }
 
