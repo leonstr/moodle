@@ -23,6 +23,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+$string['cannotregrade'] = 'Cannot regrade attempt: {$a}';
+$string['choosehaschanged'] = 'Number of questions to select has changed';
 $string['insufficientoptions'] = 'Insufficient selection options are available for this question, therefore it is not available in  this quiz. Please inform your teacher.';
 $string['nosaincategory'] = 'There are no short answer questions in the category that you chose \'{$a->catname}\'. Choose a different category, make some questions in this category.';
 $string['notenoughsaincategory'] = 'There is/are only {$a->nosaquestions} short answer questions in the category that you chose \'{$a->catname}\'. Choose a different category, make some more questions in this category or reduce the amount of questions you\'ve selected.';
@@ -33,6 +35,8 @@ $string['pluginnameadding'] = 'Adding a Random short-answer matching question';
 $string['pluginnameediting'] = 'Editing a Random short-answer matching question';
 $string['pluginnamesummary'] = 'Like a Matching question, but created randomly from the short answer questions in a particular category.';
 $string['privacy:metadata'] = 'The Random short-answer matching question type plugin does not store any personal data.';
+$string['questiondeleted'] = 'A short-answer question (ID {$a}) used by this attempt has been deleted.';
+$string['questionnotready'] = 'A short-answer question (ID {$a}) used by this attempt has no version with status "ready".';
 $string['randomsamatchnumber'] = 'Number of questions to select';
 $string['randomsamatch'] = 'Random short-answer matching';
 $string['randomsamatchintro'] = 'For each of the following questions, select the matching answer from the menu.';
