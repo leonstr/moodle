@@ -10192,14 +10192,3 @@ function reorder_group_overrides($assignid) {
         }
     }
 }
-
-/**
- * Get the information about the standard assign JavaScript module.
- * @return array a standard jsmodule structure.
- */
-function assign_get_js_module() {
-    return array(
-        'name' => 'mod_assign',
-        'fullpath' => '/mod/assign/module.js',
-    );
-}
