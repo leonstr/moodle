@@ -28,3 +28,5 @@ $string['csv:view'] = 'Import grades from CSV';
 $string['gradepenalties'] = 'Grade penalties will not be applied to imported grades.';
 $string['pluginname'] = 'CSV file';
 $string['privacy:metadata'] = 'The import grades from CSV plugin does not store any personal data.';
+$string['invalid_scale_option_verbose'] = 'Invalid grade on line {$a->linenumber} in column \'{$a->column}\': Valid options are {$a->options}, actual value is \'{$a->value}\'';
+$string['invalid_value'] = 'Invalid grade on line {$a->linenumber} in column \'{$a->column}\': Grade has to be a number between {$a->min} and {$a->max}, actual value is \'{$a->value}\'';

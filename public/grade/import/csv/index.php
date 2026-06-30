@@ -121,7 +121,7 @@ if ($formdata = $mform2->get_data()) {
         grade_import_commit($course->id, $importcode);
     } else {
         $errors = $gradeimport->get_gradebookerrors();
-        $errors[] = get_string('importfailed', 'grades');
+        array_unshift($errors, get_string('importfailed', 'grades'));
         echo $renderer->errors($errors);
         echo $OUTPUT->continue_button(new moodle_url('/grade/import/csv/index.php', ['id' => $course->id]));
     }

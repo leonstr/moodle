@@ -321,44 +321,64 @@ class gradeimport_csv_load_data {
 
         $newgrade = new stdClass();
         $newgrade->itemid = $gradeitem->id;
-        if ($gradeitem->gradetype == GRADE_TYPE_SCALE and $verbosescales) {
-            if ($value === '' or $value == '-') {
-                $value = null; // No grade.
-            } else {
-                $scale = $gradeitem->load_scale();
-                $scales = explode(',', $scale->scale);
-                $scales = array_map('trim', $scales); // Hack - trim whitespace around scale options.
-                array_unshift($scales, '-'); // Scales start at key 1.
-                $key = array_search($value, $scales);
-                if ($key === false) {
-                    $this->cleanup_import(get_string('badgrade', 'gradeimport_csv', [
-                        'badgrade' => $value,
-                        'linenumber' => $linenumber,
-                    ]));
-                    return null;
-                }
-                $value = $key;
-            }
-            $newgrade->finalgrade = $value;
+        if ($value === '' or $value === '-') {
+            $value = null;
         } else {
-            if ($value === '' or $value == '-') {
-                $value = null; // No grade.
-            } else {
+            if ($gradeitem->gradetype == GRADE_TYPE_SCALE) {
+                if ($verbosescales) {
+                    $scale = $gradeitem->load_scale();
+                    $scales = explode(',', $scale->scale);
+                    $scales = array_map('trim', $scales); // Hack - trim whitespace around scale options.
+                    $paddedscales = $scales;
+                    array_unshift($paddedscales, '-'); // Scales start at key 1.
+                    $optionkey = array_search($value, $paddedscales);
+                    if ($optionkey === false) {
+                        $this->cleanup_import(
+                            get_string('invalid_scale_option_verbose', 'gradeimport_csv', [
+                                    'column' => $this->headers[$key],
+                                    'options' => implode(', ', array_map(fn ($x) => "'$x'", $scales)),
+                                    'value' => $value,
+                                    'linenumber' => $linenumber,
+                                ]
+                            ));
+                        return null;
+                    }
+                    $value = $optionkey;
+                } else {
+                    if (!is_number($value) || $value < $gradeitem->grademin || $value > $gradeitem->grademax) {
+                        $this->cleanup_import(
+                            get_string('invalid_scale_option_verbose', 'gradeimport_csv', [
+                                    'column' => $this->headers[$key],
+                                    'options' => implode(', ', range($gradeitem->grademin, $gradeitem->grademax)),
+                                    'value' => $value,
+                                    'linenumber' => $linenumber,
+                                ]
+                            )
+                        );
+                        return null;
+                    }
+                }
+            } else if ($gradeitem->gradetype == GRADE_TYPE_VALUE) {
                 // If the value has a local decimal or can correctly be unformatted, do it.
                 $validvalue = unformat_float($value, true);
-                if ($validvalue !== false) {
-                    $value = $validvalue;
+                if ($validvalue === false || $validvalue < $gradeitem->grademin || $validvalue > $gradeitem->grademax) {
+                        $this->cleanup_import(
+                            get_string('invalid_value', 'gradeimport_csv', [
+                                    'value' => $value,
+                                    'linenumber' => $linenumber,
+                                    'column' => $this->headers[$key],
+                                    'min' => format_float($gradeitem->grademin, 3, true, true),
+                                    'max' => format_float($gradeitem->grademax, 3, true, true),
+                                ]
+                            )
+                        );
+                        return null;
                 } else {
-                    // Non numeric grade value supplied, possibly mapped wrong column.
-                    $this->cleanup_import(get_string('badgrade', 'gradeimport_csv', [
-                        'badgrade' => $value,
-                        'linenumber' => $linenumber,
-                    ]));
-                    return null;
+                    $value = $validvalue;
                 }
             }
-            $newgrade->finalgrade = $value;
         }
+        $newgrade->finalgrade = $value;
         $this->newgrades[] = $newgrade;
         return $this->newgrades;
     }

@@ -97,6 +97,8 @@ class phpunit_gradeimport_csv_load_data extends gradeimport_csv_load_data {
         string $value,
         int $linenumber
     ) {
+        $this->headers = ['1', '2', '3', '4', '5', '6', '7', '8'];
+
         return $this->update_grade_item(
             $courseid,
             $map,
