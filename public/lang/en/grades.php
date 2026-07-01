@@ -427,7 +427,7 @@ A correctly formatted spreadsheet can be obtained by first exporting some grades
 
 Select and copy the columns you want to import from the spreadsheet and then paste them into this field.';
 $string['importerror'] = 'An error occurred, this script wasn\'t called with the right parameters.';
-$string['importfailed'] = 'Import failed. No data was imported.';
+$string['importfailed'] = 'Import failed. No data was imported due to invalid values in your file.';
 $string['importfeedback'] = 'Import feedback';
 $string['importfile'] = 'Import file';
 $string['importfilemissing'] = 'No file was received, go back to the form and make sure to upload a valid file.';

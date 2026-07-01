@@ -120,9 +120,22 @@ if ($formdata = $mform2->get_data()) {
     if ($status) {
         grade_import_commit($course->id, $importcode);
     } else {
-        $errors = $gradeimport->get_gradebookerrors();
-        array_unshift($errors, get_string('importfailed', 'grades'));
-        echo $renderer->errors($errors);
+        echo $renderer->errors([get_string('importfailed', 'grades')]);
+        echo '<h4>Errors in your file</h4>';
+        echo '<p><i class="icon fa fa-info-circle m-0" aria-hidden="true"></i> We checked the full file and listed the issues we found below. You\'ll need to fix these before importing again:</p>';
+        $headers = $csvimport->get_columns();
+        array_unshift($headers, 'Line');
+        $headers[] = get_string('error');
+        $data = [];
+        foreach ($gradeimport->csvlineerrors as $lineerror) {
+            $dataitem = [$lineerror['linenumber']];
+            foreach ($lineerror['line'] as $column) {
+                $dataitem[] = $column;
+            }
+            $dataitem[] =$lineerror['message'];
+            $data[] = $dataitem;
+        }
+        echo $renderer->error_page($headers, $data);
         echo $OUTPUT->continue_button(new moodle_url('/grade/import/csv/index.php', ['id' => $course->id]));
     }
     echo $OUTPUT->footer();

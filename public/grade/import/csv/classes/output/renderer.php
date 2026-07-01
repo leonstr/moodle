@@ -75,6 +75,16 @@ class gradeimport_csv_renderer extends plugin_renderer_base {
 
         return $html;
     }
+    public function error_page($header, $data) {
+        $table = new html_table();
+        $table->head = array_map('s', $header);
+        $table->data = array_map(static function($row) {
+            return array_map('s', $row);
+        }, $data);
+        $html = html_writer::table($table);
+
+        return $html;
+    }
 
     /**
      * A renderer for errors generated trying to import the CSV file.

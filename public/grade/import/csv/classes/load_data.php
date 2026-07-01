@@ -60,6 +60,10 @@ class gradeimport_csv_load_data {
     /** @var array $newgradeitems An array of new grade items to be inserted into the gradebook. */
     protected $newgradeitems;
 
+    public $csvlineerrors = [];
+
+    public $fielderror;
+
     /**
      * Load CSV content for previewing.
      *
@@ -333,15 +337,11 @@ class gradeimport_csv_load_data {
                     array_unshift($paddedscales, '-'); // Scales start at key 1.
                     $optionkey = array_search($value, $paddedscales);
                     if ($optionkey === false) {
-                        $this->cleanup_import(
-                            get_string('invalid_scale_option_verbose', 'gradeimport_csv', [
-                                    'column' => $this->headers[$key],
-                                    'options' => implode(', ', array_map(fn ($x) => "'$x'", $scales)),
-                                    'value' => $value,
-                                    'linenumber' => $linenumber,
-                                ]
-                            ));
-                        return null;
+                        $this->fielderror = get_string('invalid_scale_option_verbose', 'gradeimport_csv', [
+                            'column' => $this->headers[$key],
+                            'options' => implode(', ', array_map(fn ($x) => "'$x'", $scales)),
+                            'linenumber' => $linenumber,
+                        ]);
                     }
                     $value = $optionkey;
                 } else {
@@ -550,7 +550,6 @@ class gradeimport_csv_load_data {
             $this->newfeedbacks = array();
             // Each line is a student record.
             foreach ($line as $key => $value) {
-
                 $value = clean_param($value, PARAM_RAW);
                 $value = trim($value);
 
@@ -572,6 +571,7 @@ class gradeimport_csv_load_data {
                     $feedbackgradeid = '';
                 }
 
+                $this->fielderror = "";
                 $this->map_user_data_with_value(
                     $mappingidentifier,
                     $value,
@@ -583,8 +583,13 @@ class gradeimport_csv_load_data {
                     $verbosescales,
                     $linenumber
                 );
-                if ($this->status === false) {
-                    return $this->status;
+                if ($this->fielderror) {
+                    $this->status = false;
+                    $this->csvlineerrors[] = [
+                        'linenumber' => $linenumber,
+                        'message' => $this->fielderror,
+                        'line' => $line,
+                    ];
                 }
             }
 
