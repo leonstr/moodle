@@ -69,7 +69,7 @@ class renderer extends \plugin_renderer_base {
      */
     public function render_assign_files(\assign_files $tree) {
         $this->htmlid = \html_writer::random_id('assign_files_tree');
-        $this->page->requires->js_init_call('M.mod_assign.init_tree', array(true, $this->htmlid));
+        $this->page->requires->js_init_call('M.mod_assign.init_tree', [true, $this->htmlid], false, assign_get_js_module());
         $html = '<div id="'.$this->htmlid.'">';
         $html .= $this->htmllize_tree($tree, $tree->dir);
         $html .= '</div>';
